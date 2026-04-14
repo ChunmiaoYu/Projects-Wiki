@@ -1,0 +1,67 @@
+site_name: 项目文档中心
+site_description: 多项目技术文档聚合平台
+site_url: https://chunmiaoyu.github.io/docs-hub/
+
+theme:
+  name: material
+  language: zh
+  palette:
+    - scheme: slate
+      primary: indigo
+      accent: cyan
+      toggle:
+        icon: material/brightness-4
+        name: 切换到亮色模式
+    - scheme: default
+      primary: indigo
+      accent: cyan
+      toggle:
+        icon: material/brightness-7
+        name: 切换到暗色模式
+  font:
+    text: Noto Sans SC
+    code: JetBrains Mono
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - search.highlight
+    - search.suggest
+    - content.code.copy
+    - toc.follow
+
+plugins:
+  - search:
+      lang: zh
+
+markdown_extensions:
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.details
+  - pymdownx.mark
+  - admonition
+  - tables
+  - toc:
+      permalink: true
+
+nav:
+  - 首页: index.md
+  - 期权交易助手:
+    - 项目概述: options-trader/01_overview.md
+    - 系统架构: options-trader/02_architecture.md
+    - Intake 解析器: options-trader/03_intake.md
+    - 策略生成器: options-trader/04_strategy.md
+    - 执行层: options-trader/05_execution.md
+    - 数据库: options-trader/06_database.md
+    - API 与前端: options-trader/07_api_frontend.md
+    - 依赖项与配置: options-trader/08_dependencies.md
+    - 未来方向: options-trader/09_roadmap.md
