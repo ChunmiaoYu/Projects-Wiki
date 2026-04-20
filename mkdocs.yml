@@ -56,12 +56,15 @@ markdown_extensions:
 nav:
   - 首页: index.md
   - 期权交易助手:
-    - 项目概述: options-trader/01_overview.md
-    - 系统架构: options-trader/02_architecture.md
-    - Intake 解析器: options-trader/03_intake.md
-    - 策略生成器: options-trader/04_strategy.md
-    - 执行层: options-trader/05_execution.md
-    - 数据库: options-trader/06_database.md
-    - API 与前端: options-trader/07_api_frontend.md
-    - 依赖项与配置: options-trader/08_dependencies.md
-    - 未来方向: options-trader/09_roadmap.md
+    - 自动文档:
+      - 项目概述: options-trader/01_overview.md
+      - 系统架构: options-trader/02_architecture.md
+      - Intake 解析器: options-trader/03_intake.md
+      - 策略生成器: options-trader/04_strategy.md
+      - 执行层: options-trader/05_execution.md
+      - 数据库: options-trader/06_database.md
+      - API 与前端: options-trader/07_api_frontend.md
+      - 依赖项与配置: options-trader/08_dependencies.md
+      - 未来方向: options-trader/09_roadmap.md
+    - 决策记录: options-trader/decisions/README.md
+    - 设计 Spec: options-trader/specs/README.md

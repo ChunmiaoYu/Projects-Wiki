@@ -10,8 +10,14 @@
 
 ## 文档说明
 
-- 所有文档由 [deepwiki-skill](https://github.com/natsu1211/deepwiki-skill) 自动生成
-- 代码引用链接到对应 commit 的 GitHub 源码
+每个项目文档分三层：
+
+- **自动文档**：由 [deepwiki-skill](https://github.com/natsu1211/deepwiki-skill) 从源码自动生成，描述代码结构。代码引用链接到对应 commit 的 GitHub 源码。
+- **决策记录**：重大改动的客户友好版（为什么这样设计、有哪些候选、风险和回滚）。按全局规则每命中触发条件就归档一条。
+- **设计 Spec**：项目内源头设计文档的脱敏公开镜像。
+
+原始讨论 / Q&A 过程 / 内部细节保留在项目 repo 内（private），不在此 public wiki。
+
 - Mermaid 图表支持在线渲染
 - 使用 MkDocs Material 主题，支持全文搜索
 
