@@ -17,7 +17,7 @@
 
 | 日期 | 主题 | 源文件 | 对应决策记录 |
 |---|---|---|---|
-| （待写入） | | | |
+| [2026-04-21](2026-04-21-agentic-trading-redesign-design.md) | Agentic Trading 重构（Agent 2 每 bar 自主决策）v5 | 项目 repo `docs/superpowers/specs/` | [decisions/2026-04-21](../decisions/2026-04-21-agentic-trading-redesign.md) |
 
 ## 相关
 
