@@ -22,4 +22,4 @@
 ## 相关
 
 - 决策记录（客户友好提炼）：[../decisions/](../decisions/)
-- 模板：[`docs-hub/templates/spec-mirror-template.md`](../../../templates/spec-mirror-template.md)
+- 模板：[`docs-hub/templates/spec-mirror-template.md`](https://github.com/ChunmiaoYu/Projects-Wiki/blob/main/templates/spec-mirror-template.md)

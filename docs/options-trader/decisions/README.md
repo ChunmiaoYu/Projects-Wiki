@@ -18,4 +18,4 @@
 
 - 设计 Spec 镜像：[../specs/](../specs/)
 - 原始讨论（internal，不在此公开）：项目 repo `docs/superpowers/discussions/`
-- 模板：[`docs-hub/templates/decision-template.md`](../../../templates/decision-template.md)
+- 模板：[`docs-hub/templates/decision-template.md`](https://github.com/ChunmiaoYu/Projects-Wiki/blob/main/templates/decision-template.md)
