@@ -3,8 +3,8 @@
     "description": "options_ai_trader 项目的 Dashboard 状态镜像。这是轻量版 — 只记录客户 Dashboard 需要的核心字段(整体进度 / 本周进展 / 下周计划 / 重要节点 / 待处理事项 / 客户评论镜像 / 归档快照索引)。每次 CC 更新 Dashboard 时读此文件作为基准,更新后写回。",
     "version": "2.0",
     "notes": "从 v1.0 (6 Sheet TSV 模式) 升级到 v2.0 (单文档 Dashboard 模式)。6 Sheet 架构废弃,客户不看数据表。",
-    "last_sync": "2026-04-22",
-    "last_sync_by": "by CC - Mermaid timeline 换自制 HTML 时间线 + 进度 90→65 修正"
+    "last_sync": "2026-04-23",
+    "last_sync_by": "by CC - Phase 11 Step A+B+C+D 全部 4 Step 完成 + 风控 7 条规则 + 进度 65→75"
   },
   "project_info": {
     "name": "options_ai_trader",
@@ -12,30 +12,30 @@
     "client_name": "(填写客户名)",
     "start_date": "2026-03-24",
     "target_delivery": "2026 年 5 月下 (PROD 大额实盘启动)",
-    "current_stage": "Phase 11 AI 自动盯盘 · 实施冲刺期",
-    "progress_pct": 65
+    "current_stage": "AI 自主决策地基建完 · 准备执行层收尾 + 实测期",
+    "progress_pct": 75
   },
   "next_milestone": {
     "name": "AI 自动盯盘首次盘中实测",
-    "date": "2026-04-24",
+    "date": "2026-04-29",
     "environment": "云 DEV 模拟账户 (paper)",
-    "note": "周五美股交易日首次跑起来看效果"
+    "note": "执行层代码补完后, 模拟账户连续 5 天盘中跑"
   },
   "upcoming_timeline": [
     {
-      "date": "2026-04-24",
-      "label": "周五 · 美股交易日",
-      "event": "AI 自动盯盘首次盘中实测 (云 DEV 模拟账户)"
+      "date": "2026-04-24 ~ 04-28",
+      "label": "收尾期",
+      "event": "执行层代码补完 + 智能挂单链路 (云 DEV)"
     },
     {
-      "date": "2026-04-29 ~ 2026-05-10",
-      "label": "补齐与迭代",
-      "event": "根据周五结果补强功能 + 持续迭代"
+      "date": "2026-04-29 ~ 05-08",
+      "label": "实测期",
+      "event": "模拟账户 5 个交易日实测 (云 DEV Paper)"
     },
     {
       "date": "2026-05 中",
       "label": "UAT 实盘启动",
-      "event": "UAT 小额实盘 ($10k 量级真钱 Live)"
+      "event": "UAT 小额真钱实盘 ($10k 量级 Live)"
     },
     {
       "date": "2026-05 下",
@@ -45,31 +45,31 @@
   ],
   "this_week_highlights": [
     {
-      "title": "重大方向升级: AI 下单后自己盯盘",
-      "detail_before": "AI 选策略 → 人工点确认 → 下单 → 结束",
-      "detail_after": "AI 下单后每 5 分钟自主看盘,决定继续持有 / 部分平仓 / 全部平仓 / 调整止损",
-      "benefit": "不用手动盯盘,关键时点 AI 主动出手,止损也能自动走完不漏",
+      "title": "AI 自主决策地基建完",
+      "detail_before": "系统能识别中文意图, 但 AI 只在下单前给一次建议, 之后不管",
+      "detail_after": "AI 拿到 9 类市场数据, 每 5 分钟思考一次, 自主决定继续持有 / 部分平仓 / 全部平仓 / 调整止损位",
+      "benefit": "AI 决策的'眼睛' + '大脑' + '刹车'三件套全部建完, 下一步执行链路接上盘中实测",
       "is_star": true
     },
     {
-      "title": "系统反馈逻辑更清晰",
-      "detail_before": "'完全支持 / 仅建议 / 部分支持' 三档容易混淆",
-      "detail_after": "'能做' 或 '暂时做不了' 两档,一眼看懂",
-      "benefit": null,
+      "title": "风险兜底 7 条硬规则上线",
+      "detail_before": null,
+      "detail_after": "AI 每次决策都要过 7 道闸门: 单笔仓位 30% / 总仓位 60-70% / 流动性分层 / 价格 sanity check / 频率限制 / 熔断 / Assignment 规避",
+      "benefit": "AI 即使判断错也跑不出这 7 条边界",
       "is_star": false
     },
     {
-      "title": "复杂中文指令识别更稳",
+      "title": "期权实战派审视, 平仓阈值定调",
       "detail_before": null,
-      "detail_after": "像 'NVDA 财报那天涨破 $900 就买 call,涨一倍平仓,跌到 $850 止损' 这种复合指令,现在能稳定识别每一个细节",
-      "benefit": null,
+      "detail_after": "请实战派 review 平仓参数: 距到期 5 天就强制平仓 + 紧急平仓允许临时市价单兜底",
+      "benefit": "实战派背书, 避免理论参数实盘踩坑",
       "is_star": false
     },
     {
-      "title": "盘中实盘已通过测试",
+      "title": "质量基线: 测试 +37%, 老隐藏问题修光",
       "detail_before": null,
-      "detail_after": "4/17 在模拟账户完成真实下单全流程测试,发现并修复了 10 多个边界问题",
-      "benefit": null,
+      "detail_after": "新增 49 个自动化测试 (144→197), 同时发现并修复 4 处一直没暴露的老测试问题",
+      "benefit": "系统每改一行测试都能验证, 不靠人脑记",
       "is_star": false
     }
   ],
@@ -84,6 +84,12 @@
   ],
   "client_comments_mirror": [],
   "snapshots": [
+    {
+      "date": "2026-04-23",
+      "path": "docs/options-trader/dashboard-snapshots/2026-04-23.md",
+      "summary": "AI 自主决策地基建完(数据 / 决策 / 风控 三层打通) + 风控 7 条硬规则 + 期权实战派 review + 测试 +37%",
+      "comments_count": 0
+    },
     {
       "date": "2026-04-22",
       "path": "docs/options-trader/dashboard-snapshots/2026-04-22.md",
