@@ -56,6 +56,8 @@ markdown_extensions:
 nav:
   - 首页: index.md
   - 期权交易助手:
+    - 客户看板: options-trader/dashboard/index.md
+    - 看板历史: options-trader/dashboard-snapshots/index.md
     - 自动文档:
       - 项目概述: options-trader/01_overview.md
       - 系统架构: options-trader/02_architecture.md
@@ -72,5 +74,3 @@ nav:
     - 设计 Spec:
       - 索引: options-trader/specs/README.md
       - 2026-04-21 Agentic Trading 重构 (v5): options-trader/specs/2026-04-21-agentic-trading-redesign-design.md
-    - 客户周报:
-      - 2026-W17 (2026-04-22): options-trader/weekly-reports/2026-W17.md
