@@ -828,9 +828,10 @@
         "O001-O006 六条五专家决策已采纳",
         "IBKR 第二账号申请 + Anthropic keys 注册 进入前置流程"
       ],
-      "full_report_path": "options_ai_trader/weekly-reports/2026-W17.md",
+      "full_report_path": "docs/options-trader/weekly-reports/2026-W17.md",
       "commits_in_week": 127,
-      "effort_days_estimated": 5.5
+      "effort_days_estimated": 5.5,
+      "published_url": "https://chunmiaoyu.github.io/Projects-Wiki/options-trader/weekly-reports/2026-W17/"
     }
   ]
 }

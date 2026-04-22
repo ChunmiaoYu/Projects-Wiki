@@ -1,6 +1,6 @@
 site_name: 项目文档中心
 site_description: 多项目技术文档聚合平台
-site_url: https://chunmiaoyu.github.io/docs-hub/
+site_url: https://chunmiaoyu.github.io/Projects-Wiki/
 
 theme:
   name: material
@@ -72,3 +72,5 @@ nav:
     - 设计 Spec:
       - 索引: options-trader/specs/README.md
       - 2026-04-21 Agentic Trading 重构 (v5): options-trader/specs/2026-04-21-agentic-trading-redesign-design.md
+    - 客户周报:
+      - 2026-W17 (2026-04-22): options-trader/weekly-reports/2026-W17.md
