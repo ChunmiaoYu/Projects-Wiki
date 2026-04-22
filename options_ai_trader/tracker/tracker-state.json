@@ -4,7 +4,7 @@
     "version": "2.0",
     "notes": "从 v1.0 (6 Sheet TSV 模式) 升级到 v2.0 (单文档 Dashboard 模式)。6 Sheet 架构废弃,客户不看数据表。",
     "last_sync": "2026-04-22",
-    "last_sync_by": "v2.0 初始化 by CC - 重设计为轻量 Dashboard 驱动"
+    "last_sync_by": "by CC - Mermaid timeline 换自制 HTML 时间线 + 进度 90→65 修正"
   },
   "project_info": {
     "name": "options_ai_trader",
@@ -13,7 +13,7 @@
     "start_date": "2026-03-24",
     "target_delivery": "2026 年 5 月下 (PROD 大额实盘启动)",
     "current_stage": "Phase 11 AI 自动盯盘 · 实施冲刺期",
-    "progress_pct": 90
+    "progress_pct": 65
   },
   "next_milestone": {
     "name": "AI 自动盯盘首次盘中实测",
@@ -22,10 +22,26 @@
     "note": "周五美股交易日首次跑起来看效果"
   },
   "upcoming_timeline": [
-    {"date": "2026-04-24", "label": "周五 · 美股交易日", "event": "AI 自动盯盘首次盘中实测 (云 DEV 模拟账户)"},
-    {"date": "2026-04-29 ~ 2026-05-10", "label": "补齐与迭代", "event": "根据周五结果补强功能 + 持续迭代"},
-    {"date": "2026-05 中", "label": "UAT 实盘启动", "event": "UAT 小额实盘 ($10k 量级真钱 Live)"},
-    {"date": "2026-05 下", "label": "PROD 大额实盘", "event": "PROD 大额实盘启动"}
+    {
+      "date": "2026-04-24",
+      "label": "周五 · 美股交易日",
+      "event": "AI 自动盯盘首次盘中实测 (云 DEV 模拟账户)"
+    },
+    {
+      "date": "2026-04-29 ~ 2026-05-10",
+      "label": "补齐与迭代",
+      "event": "根据周五结果补强功能 + 持续迭代"
+    },
+    {
+      "date": "2026-05 中",
+      "label": "UAT 实盘启动",
+      "event": "UAT 小额实盘 ($10k 量级真钱 Live)"
+    },
+    {
+      "date": "2026-05 下",
+      "label": "PROD 大额实盘",
+      "event": "PROD 大额实盘启动"
+    }
   ],
   "this_week_highlights": [
     {
@@ -68,6 +84,10 @@
   ],
   "client_comments_mirror": [],
   "snapshots": [
-    {"date": "2026-04-22", "path": "docs/options-trader/dashboard-snapshots/2026-04-22.md", "summary": "v1.0 → v2.0 架构升级;本周三大进展:方向升级 / 反馈清晰 / 指令识别稳"}
+    {
+      "date": "2026-04-22",
+      "path": "docs/options-trader/dashboard-snapshots/2026-04-22.md",
+      "summary": "v1.0 → v2.0 架构升级;本周三大进展:方向升级 / 反馈清晰 / 指令识别稳"
+    }
   ]
 }
