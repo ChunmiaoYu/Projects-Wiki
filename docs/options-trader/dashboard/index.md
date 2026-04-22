@@ -47,7 +47,7 @@ hide:
 
     ---
 
-    **以前**: AI 选策略 → 人工确认 → 下单 → 结束
+    **以前**: AI 选策略 → 下单 → 死板止盈止损 → 结束
 
     **今后**: AI 下单后每 5 分钟自主看盘, 决定:
 
@@ -107,7 +107,7 @@ hide:
 <div class="tl-dot tl-dot-2">🔧</div>
 <div class="tl-date">4/29 ~ 5/10</div>
 <div class="tl-title">功能补齐 + 持续迭代</div>
-<div class="tl-desc" markdown>基于周五结果调优, 补上分级调用 / 智能挂单 / 条件触发 · <span class="badge badge-dev">云 DEV Paper</span></div>
+<div class="tl-desc" markdown>基于周五结果调优, 补上分级调用 / 智能挂单 / 条件触发 · <span class="badge badge-uat">云 UAT Live</span></div>
 </div>
 
 <div class="tl-item" markdown>
