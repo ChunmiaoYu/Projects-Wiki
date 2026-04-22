@@ -24,18 +24,29 @@ theme:
   features:
     - navigation.tabs
     - navigation.sections
-    - navigation.expand
+    - navigation.indexes
     - navigation.top
     - search.highlight
     - search.suggest
     - content.code.copy
     - toc.follow
+  icon:
+    admonition:
+      note: octicons/info-16
+      tip: octicons/light-bulb-16
+      warning: octicons/alert-16
+      success: octicons/check-circle-16
+
+extra_css:
+  - stylesheets/extra.css
 
 plugins:
   - search:
       lang: zh
 
 markdown_extensions:
+  - attr_list
+  - md_in_html
   - pymdownx.superfences:
       custom_fences:
         - name: mermaid
@@ -48,6 +59,9 @@ markdown_extensions:
   - pymdownx.inlinehilite
   - pymdownx.details
   - pymdownx.mark
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
   - admonition
   - tables
   - toc:
@@ -55,10 +69,13 @@ markdown_extensions:
 
 nav:
   - 首页: index.md
-  - 期权交易助手:
+  - 期权 AI 交易助手:
     - 客户看板: options-trader/dashboard/index.md
     - 看板历史: options-trader/dashboard-snapshots/index.md
-    - 自动文档:
+    - 决策记录:
+      - options-trader/decisions/README.md
+      - 2026-04-21 AI 自动盯盘方向: options-trader/decisions/2026-04-21-agentic-trading-redesign.md
+    - 技术文档:
       - 项目概述: options-trader/01_overview.md
       - 系统架构: options-trader/02_architecture.md
       - Intake 解析器: options-trader/03_intake.md
@@ -68,9 +85,6 @@ nav:
       - API 与前端: options-trader/07_api_frontend.md
       - 依赖项与配置: options-trader/08_dependencies.md
       - 未来方向: options-trader/09_roadmap.md
-    - 决策记录:
-      - 索引: options-trader/decisions/README.md
-      - 2026-04-21 Agentic Trading 重构: options-trader/decisions/2026-04-21-agentic-trading-redesign.md
-    - 设计 Spec:
-      - 索引: options-trader/specs/README.md
-      - 2026-04-21 Agentic Trading 重构 (v5): options-trader/specs/2026-04-21-agentic-trading-redesign-design.md
+    - 完整设计:
+      - options-trader/specs/README.md
+      - 2026-04-21 AI 自动盯盘 (完整版 v5): options-trader/specs/2026-04-21-agentic-trading-redesign-design.md

@@ -1,0 +1,162 @@
+/* ============================================
+   Dashboard 美化 · 简洁商务风
+   主色: Indigo #3f51b5 | 强调: Cyan #00bcd4
+   ============================================ */
+
+/* 进度条 */
+.progress-wrap {
+  margin: 1.2em 0;
+}
+.progress-bar {
+  width: 100%;
+  height: 26px;
+  background: rgba(63, 81, 181, 0.08);
+  border-radius: 13px;
+  overflow: hidden;
+  position: relative;
+  border: 1px solid rgba(63, 81, 181, 0.15);
+}
+[data-md-color-scheme="slate"] .progress-bar {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.12);
+}
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #3f51b5 0%, #00bcd4 100%);
+  border-radius: 13px;
+  transition: width 0.5s ease;
+  box-shadow: 0 0 8px rgba(0, 188, 212, 0.4);
+}
+.progress-label {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  line-height: 26px;
+  font-weight: 700;
+  color: white;
+  font-size: 0.85rem;
+  letter-spacing: 0.5px;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+/* 徽章 (环境标签 / 状态) */
+.badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-size: 0.75em;
+  font-weight: 700;
+  color: white;
+  letter-spacing: 0.5px;
+  vertical-align: middle;
+  margin: 0 2px;
+}
+.badge-paper   { background: linear-gradient(135deg, #78909c, #546e7a); }
+.badge-dev     { background: linear-gradient(135deg, #66bb6a, #43a047); }
+.badge-uat     { background: linear-gradient(135deg, #ffa726, #fb8c00); }
+.badge-prod    { background: linear-gradient(135deg, #ef5350, #c62828); }
+.badge-done    { background: linear-gradient(135deg, #26c6da, #00acc1); }
+.badge-doing   { background: linear-gradient(135deg, #5c6bc0, #3949ab); }
+.badge-wait    { background: linear-gradient(135deg, #bdbdbd, #757575); }
+.badge-star    { background: linear-gradient(135deg, #ffd54f, #ffa726); color: #3e2723; }
+
+/* 大号下一节点卡片 */
+.next-milestone {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1.2rem 1.5rem;
+  margin: 1.5rem 0;
+  background: linear-gradient(135deg, rgba(63, 81, 181, 0.08), rgba(0, 188, 212, 0.06));
+  border-left: 5px solid #00bcd4;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+[data-md-color-scheme="slate"] .next-milestone {
+  background: linear-gradient(135deg, rgba(63, 81, 181, 0.18), rgba(0, 188, 212, 0.12));
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+.next-milestone .icon {
+  font-size: 2.2rem;
+  line-height: 1;
+}
+.next-milestone .content {
+  flex: 1;
+}
+.next-milestone .date {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #00bcd4;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+.next-milestone .event {
+  font-size: 1.15rem;
+  font-weight: 700;
+  margin-top: 0.2rem;
+}
+.next-milestone .sub {
+  font-size: 0.9rem;
+  opacity: 0.75;
+  margin-top: 0.2rem;
+}
+
+/* Dashboard 专属 · 让 grid cards 更有呼吸感 */
+.md-typeset .grid.cards > ol > li,
+.md-typeset .grid.cards > ul > li,
+.md-typeset .grid > .card {
+  border-radius: 8px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+.md-typeset .grid.cards > ol > li:hover,
+.md-typeset .grid.cards > ul > li:hover,
+.md-typeset .grid > .card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+/* ⭐ star 卡片特殊样式 */
+.card-star {
+  border-left: 4px solid #ffa726 !important;
+}
+
+/* 评论入口大按钮 */
+.comment-cta {
+  display: block;
+  padding: 1.2rem 1.5rem;
+  margin: 2rem 0;
+  background: linear-gradient(135deg, #3f51b5, #00bcd4);
+  color: white !important;
+  border-radius: 10px;
+  text-align: center;
+  text-decoration: none !important;
+  font-weight: 600;
+  font-size: 1.05rem;
+  box-shadow: 0 4px 12px rgba(63, 81, 181, 0.3);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+.comment-cta:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(63, 81, 181, 0.4);
+  color: white !important;
+}
+.comment-cta .label {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 400;
+  opacity: 0.9;
+  margin-bottom: 0.3rem;
+  letter-spacing: 1px;
+}
+
+/* Mermaid timeline 居中 */
+.mermaid {
+  text-align: center;
+}
+
+/* 时间表加粗首列 */
+.md-typeset table:not([class]) td:first-child {
+  font-weight: 600;
+}

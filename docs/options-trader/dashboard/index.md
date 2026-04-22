@@ -1,79 +1,127 @@
-# 📊 期权 AI 交易助手 · 项目看板
+---
+hide:
+  - navigation
+  - toc
+---
 
-> **最近更新**: 2026-04-22 · [查看历史版本](../dashboard-snapshots/)
+# :material-chart-box: 期权 AI 交易助手 · 项目看板
+
+> **最近更新**: 2026-04-22 · [:material-history: 查看历史版本](../dashboard-snapshots/)
 
 ---
 
-## 📍 当前状态
+## :material-target: 当前状态
 
-**整体进度**: `█████████░` **90%**
+<div class="progress-wrap" markdown>
+<div class="progress-bar">
+  <div class="progress-fill" style="width: 90%"></div>
+  <span class="progress-label">整体进度 · 90%</span>
+</div>
+</div>
 
-**下一节点**: 🎯 **2026-04-24 (周五, 美股交易日)** · AI 自动盯盘首次盘中实测 (云 DEV 模拟账户)
+<div class="next-milestone" markdown>
+<div class="icon">:material-rocket-launch:</div>
+<div class="content" markdown>
+<div class="date">下一节点 · 2026-04-24 (周五, 美股交易日)</div>
+<div class="event">AI 自动盯盘首次盘中实测</div>
+<div class="sub">环境: [云 DEV]{.badge .badge-dev} [模拟账户 Paper]{.badge .badge-paper}</div>
+</div>
+</div>
 
-系统核心功能已建完。本周完成最后一个大方向的设计,周五上模拟账户首次实盘验证"AI 自动盯盘"这个核心能力。
-
----
-
-## ⚠️ 本周待处理
-
-- **IBKR API 专用账号** · 已发起申请,审核中 (预计 4/25-4/29 下来)
-  - 这是切 UAT 真钱实盘的前置条件,到账后会立即通知
-
----
-
-## 📆 最近 1.5 周进展 (4/11 - 4/22)
-
-### ⭐ 重大方向升级: AI 下单后自己盯盘
-
-**以前**: AI 选好策略 → 人工点确认 → 下单 → 结束
-
-**今后**: AI 下单后每 5 分钟自主看盘, 决定
-
-- 继续持有
-- 部分平仓
-- 全部平仓
-- 调整止损位
-
-**好处**: 不用手动盯盘, 关键时点 AI 主动出手, 止损也能自动走完不漏。
-
-### 系统反馈逻辑更清晰
-
-之前显示 "完全支持 / 仅建议 / 部分支持" 三档, 容易混淆。
-现在简化为 **能做** 或 **暂时做不了** 两档, 一眼看懂。
-
-### 复杂中文指令识别更稳
-
-像 *"NVDA 财报那天涨破 $900 就买 call, 涨一倍平仓, 跌到 $850 止损"* 这种复合指令, 系统现在能稳定识别每一个细节 (入场条件 / 止盈 / 止损 分别落到位)。
-
-### 盘中实盘已通过测试
-
-4 月 17 日在模拟账户完成真实下单全流程测试, 发现并修复了 10 多个边界问题。
+系统核心功能已建完。本周完成最后一个大方向的设计,周五上模拟账户首次实盘验证 **AI 自动盯盘** 这个核心能力。
 
 ---
 
-## 🗺 未来计划
+## :material-alert-circle: 本周待处理
 
-| 时间 | 动作 |
-|------|------|
-| **2026-04-24** (周五·美股交易日) | 🎯 AI 自动盯盘首次盘中实测 (云 DEV 模拟账户) |
-| **4/29 - 5/10** | 根据周五结果补强功能 + 持续迭代 |
-| **2026 年 5 月中** | UAT 小额实盘启动 (真钱 Live, $10k 量级) |
-| **2026 年 5 月下** | PROD 大额实盘启动 |
+!!! warning "IBKR API 专用账号 · 审核中"
+    已发起申请, 预计 **4/25 - 4/29** 下来。这是切 UAT 真钱实盘的前置条件, 到账后会立即通知。
 
 ---
 
-## 💬 反馈与留言
+## :material-calendar-check: 最近 1.5 周进展 (4/11 - 4/22)
 
-有任何想法、疑问、或想看的方向:
+<div class="grid cards" markdown>
 
-**选中对应文字或段落 → 右键"评论"**
+-   :material-star-circle: &nbsp; __AI 下单后自己盯盘__ · [本期重点]{.badge .badge-star}
 
-项目方会实时收到通知并回复。也欢迎在微信群里直接讨论。
+    ---
+
+    **以前**: AI 选策略 → 人工确认 → 下单 → 结束
+
+    **今后**: AI 下单后每 5 分钟自主看盘, 决定:
+
+    - 继续持有
+    - 部分平仓
+    - 全部平仓
+    - 调整止损位
+
+    *不用手动盯盘, 关键时点 AI 主动出手, 止损也能自动走完不漏*
+
+-   :material-speedometer: &nbsp; __系统反馈逻辑更清晰__
+
+    ---
+
+    **以前**: 三档 "完全支持 / 仅建议 / 部分支持" 容易混淆
+
+    **现在**: 两档 [能做]{.badge .badge-done} [暂时做不了]{.badge .badge-wait}
+
+    *一眼看懂*
+
+-   :material-message-text-outline: &nbsp; __复杂中文指令识别更稳__
+
+    ---
+
+    像 *"NVDA 财报那天涨破 \$900 就买 call, 涨一倍平仓, 跌到 \$850 止损"* 这种复合指令
+
+    现在能稳定识别 **每一个细节**:
+
+    - 入场条件
+    - 止盈
+    - 止损
+
+-   :material-check-decagram: &nbsp; __盘中实盘已通过测试__
+
+    ---
+
+    4 月 17 日在 [模拟账户]{.badge .badge-paper} 完成真实下单全流程测试
+
+    发现并修复了 **10 多个边界问题**, 为上 UAT 实盘铺好路
+
+</div>
 
 ---
 
-## 📂 查看历史版本
+## :material-map-marker-path: 未来计划
 
-每次看板更新会自动归档一份快照,按日期可查:
+```mermaid
+timeline
+    title 交付路径时间线
+    2026-04-24 周五 : 🎯 AI 自动盯盘 首次盘中实测 : 云 DEV 模拟账户
+    4/29 ~ 5/10 : 功能补齐 + 持续迭代 : 基于周五结果调优
+    2026 年 5 月中 : UAT 小额实盘启动 : $10k 真钱 Live
+    2026 年 5 月下 : PROD 大额实盘启动 : 正式交付
+```
 
-👉 **[看板历史归档](../dashboard-snapshots/)**
+| 时间 | 动作 | 环境 |
+|------|------|------|
+| **2026-04-24** (周五) | AI 自动盯盘首次盘中实测 | [云 DEV Paper]{.badge .badge-dev} |
+| **4/29 - 5/10** | 功能补齐 + 持续迭代 | [云 DEV Paper]{.badge .badge-dev} |
+| **2026 年 5 月中** | UAT 小额实盘启动 | [UAT Live]{.badge .badge-uat} |
+| **2026 年 5 月下** | PROD 大额实盘启动 | [PROD Live]{.badge .badge-prod} |
+
+---
+
+<a class="comment-cta" href="https://docs.qq.com/doc/DVHBSd29vTHR1U1dj" target="_blank">
+<span class="label">:material-comment-text-outline: · 反馈与留言</span>
+有任何想法、疑问、或想看的方向 → 点这里跳转腾讯文档评论
+</a>
+
+---
+
+## :material-archive: 查看历史版本
+
+!!! tip ""
+    每次看板更新会自动归档一份快照, 按日期可查。
+
+    :material-arrow-right-bold: **[看板历史归档](../dashboard-snapshots/)**
