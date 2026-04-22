@@ -7,7 +7,7 @@
 | 项目 | 描述 | 状态 |
 |------|------|------|
 | [期权 AI 交易助手](options-trader/dashboard/) | 自然语言 → AI 策略生成 → IBKR 自动下单 | 开发中 (进度 65%) |
-| [Auckland Property Shortlist](auckland-property-shortlist/dashboard/) | Auckland 房地产候选 → 离线 GIS 富化 → 评分 → 短名单 (桌面版 + 云端 Web) | 云上线稳定期 (进度 80%) |
+| [奥克兰在售房产搜索工具](auckland-property-shortlist/dashboard/) | Auckland 房地产候选 → 离线 GIS 富化 → 评分 → 短名单 (桌面版 + 云端 Web) | 云上线稳定期 (进度 80%) |
 
 ## 文档说明
 

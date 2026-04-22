@@ -87,7 +87,7 @@ nav:
     - 完整设计:
       - options-trader/specs/README.md
       - 2026-04-21 AI 自动盯盘 (完整版 v5): options-trader/specs/2026-04-21-agentic-trading-redesign-design.md
-  - Auckland Property Shortlist:
+  - 奥克兰在售房产搜索工具:
     - 项目看板: auckland-property-shortlist/dashboard/index.md
     - 看板历史: auckland-property-shortlist/dashboard-snapshots/index.md
     - 技术文档:
