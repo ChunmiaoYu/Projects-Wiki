@@ -87,3 +87,19 @@ nav:
     - 完整设计:
       - options-trader/specs/README.md
       - 2026-04-21 AI 自动盯盘 (完整版 v5): options-trader/specs/2026-04-21-agentic-trading-redesign-design.md
+  - Auckland Property Shortlist:
+    - 项目看板: auckland-property-shortlist/dashboard/index.md
+    - 看板历史: auckland-property-shortlist/dashboard-snapshots/index.md
+    - 技术文档:
+      - 文档索引: auckland-property-shortlist/index.md
+      - 项目概述: auckland-property-shortlist/01_overview.md
+      - 双形态架构对比: auckland-property-shortlist/02_architecture.md
+      - 桌面业务流水线: auckland-property-shortlist/03_desktop_pipeline.md
+      - 离线 GIS 富化: auckland-property-shortlist/04_gis_enrichers.md
+      - 数据源抓取: auckland-property-shortlist/05_providers.md
+      - 授权系统: auckland-property-shortlist/06_licensing.md
+      - 云端 Web 平台: auckland-property-shortlist/07_web_platform.md
+      - 数据库: auckland-property-shortlist/08_database.md
+      - 部署与 CI/CD: auckland-property-shortlist/09_deploy_cicd.md
+      - 配置与依赖: auckland-property-shortlist/10_config_dependencies.md
+      - 路线图: auckland-property-shortlist/11_roadmap.md

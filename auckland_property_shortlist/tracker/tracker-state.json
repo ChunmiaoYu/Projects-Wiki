@@ -1,0 +1,107 @@
+{
+  "_meta": {
+    "description": "Auckland Property Shortlist 项目的 Dashboard 状态镜像 (自用项目简化版)。自用项目, 无客户协作, 不含腾讯文档评论镜像等外部协作字段。每次 CC 更新 Dashboard 时读此文件作为基准, 更新后写回。",
+    "version": "2.0-internal",
+    "notes": "此版本从 _shared/claude-status-prompt.md 双轨架构裁剪而来 — 删除 client_comments_mirror / tencent_doc_url / 腾讯文档版字段, 只保留项目进度追踪核心。",
+    "last_sync": "2026-04-22",
+    "last_sync_by": "by CC - Dashboard 首版初始化"
+  },
+  "project_info": {
+    "name": "auckland_property_shortlist",
+    "name_zh": "Auckland Property Shortlist",
+    "client_name": "自用 · 无外部客户",
+    "start_date": "2026-03",
+    "target_delivery": "持续迭代 · 无固定交付日",
+    "current_stage": "云端 Web 平台上线稳定期 · 增量功能迭代",
+    "progress_pct": 80
+  },
+  "next_milestone": {
+    "name": "PR #8 合并 + Deploy to PROD 回归验证",
+    "date": "2026-04-23",
+    "environment": "PROD",
+    "note": "验证 deploy.sh 顺序修复是否彻底解决 venv 被 git clean 误删的连锁问题"
+  },
+  "upcoming_timeline": [
+    {
+      "date": "2026-04-23",
+      "label": "近期",
+      "event": "PR #8 合并 + Deploy to PROD 回归验证 (venv 保护修复)"
+    },
+    {
+      "date": "2026-04 月底",
+      "label": "4 月尾",
+      "event": "Listing lifecycle 管理 (is_active flag + 下架房源检测)"
+    },
+    {
+      "date": "2026-05 中",
+      "label": "5 月中",
+      "event": "HTTPS + 自定义域名 (当前仅 IP 直连)"
+    },
+    {
+      "date": "2026-05 下",
+      "label": "5 月尾",
+      "event": "Private messaging (Admin ↔ User) + Teams/WeChat 集成探索"
+    }
+  ],
+  "this_week_highlights": [
+    {
+      "title": "云端 Web 平台已上线 Oracle Cloud",
+      "detail_before": "仅 Windows 桌面单机版, PyInstaller onedir 发布, 使用场景受限于发行方签发 license",
+      "detail_after": "云端 Web 平台已上 Oracle VM (aps-web, 161.33.80.117), FastAPI + SQLite WAL + systemd + cron + CI/CD, 180 天历史数据 5,306 条房源完整加载",
+      "benefit": "里程碑级 — 从单机工具跨到多用户云产品, 后续可挂 HTTPS/域名/私信做 SaaS 形态",
+      "is_star": true
+    },
+    {
+      "title": "Re-enrich 机制全流程实施",
+      "detail_before": "GIS 数据更新后需要手动 SSH 重跑 pipeline, 无独立 CLI, 无 cron 托管",
+      "detail_after": "reenrich.py CLI + service 化 + cron try/finally lifecycle + sudoers 自动安装 + PROD smoke 17m44s 端到端成功 (2946 accepted + 2332 rejected)",
+      "benefit": "GIS 数据或评分算法升级后可一条命令触发全量重算, 不再手动处理",
+      "is_star": false
+    },
+    {
+      "title": "PROD 缩略图恢复 + schools 分隔符修复",
+      "detail_before": "PROD 2947 行全无缩略图 (requirements 漏 matplotlib) + 学校列 \\n 分隔不渲染挤成一团",
+      "detail_after": "PR #6/#7/#8 连锁修完 — 加 matplotlib + APS.fmtSchoolList(\\n→; ) + .gitignore 加 venv/ + deploy.sh 顺序调整。Reenrich 跑完 has_png=2947/2947, Playwright 22/22 验证通过",
+      "benefit": "前端体验恢复完整, 同时暴露并修复了 deploy.sh 的 git clean 误删 venv 连锁 bug",
+      "is_star": false
+    },
+    {
+      "title": "Deploy.sh 加固 (PR #5)",
+      "detail_before": "checkout + pull 组合遇到 VM 本地漂移 (文件 mode 变化, .gitignore 未追踪) 会报错阻塞部署",
+      "detail_after": "reset --hard 取代 checkout+pull (VM 漂移自动抹平), sudoers 自动安装 (_systemctl 检查真实 returncode)",
+      "benefit": "CI/CD 流水线更鲁棒, VM 人工运维残留可自愈",
+      "is_star": false
+    }
+  ],
+  "action_items": [
+    {
+      "id": "A001",
+      "content": "PR #8 合并 + Deploy to PROD 回归验证 (验证 venv 保护修复)",
+      "status": "进行中",
+      "owner": "自己",
+      "created_at": "2026-04-22"
+    },
+    {
+      "id": "A002",
+      "content": "Listing lifecycle 管理 (is_active flag + 下架检测) — 避免 PROD 保留已下架房源",
+      "status": "待启动",
+      "owner": "自己",
+      "created_at": "2026-04-22"
+    },
+    {
+      "id": "A003",
+      "content": "HTTPS + 自定义域名 (当前 IP 直连不利长期使用)",
+      "status": "待启动",
+      "owner": "自己",
+      "created_at": "2026-04-22"
+    }
+  ],
+  "snapshots": [
+    {
+      "date": "2026-04-22",
+      "path": "docs/auckland-property-shortlist/dashboard-snapshots/2026-04-22.md",
+      "summary": "Dashboard 首版初始化 · 云端平台已上线并稳定运行, 进度 80%",
+      "comments_count": 0
+    }
+  ]
+}
