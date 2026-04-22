@@ -20,11 +20,11 @@ hide:
 </div>
 
 <div class="next-milestone" markdown>
-<div class="icon">:material-rocket-launch:</div>
+<div class="icon">🚀</div>
 <div class="content" markdown>
 <div class="date">下一节点 · 2026-04-24 (周五, 美股交易日)</div>
 <div class="event">AI 自动盯盘首次盘中实测</div>
-<div class="sub">环境: [云 DEV]{.badge .badge-dev} [模拟账户 Paper]{.badge .badge-paper}</div>
+<div class="sub" markdown>环境: [云 DEV]{.badge .badge-dev} [模拟账户 Paper]{.badge .badge-paper}</div>
 </div>
 </div>
 
@@ -100,28 +100,28 @@ hide:
 <div class="tl-dot tl-dot-1">🎯</div>
 <div class="tl-date">2026-04-24 · 周五 美股交易日</div>
 <div class="tl-title">AI 自动盯盘首次盘中实测</div>
-<div class="tl-desc">首次跑起来看实时决策效果 · [云 DEV Paper]{.badge .badge-dev}</div>
+<div class="tl-desc" markdown>首次跑起来看实时决策效果 · [云 DEV Paper]{.badge .badge-dev}</div>
 </div>
 
 <div class="tl-item" markdown>
 <div class="tl-dot tl-dot-2">🔧</div>
 <div class="tl-date">4/29 ~ 5/10</div>
 <div class="tl-title">功能补齐 + 持续迭代</div>
-<div class="tl-desc">基于周五结果调优, 补上分级调用 / 智能挂单 / 条件触发 · [云 DEV Paper]{.badge .badge-dev}</div>
+<div class="tl-desc" markdown>基于周五结果调优, 补上分级调用 / 智能挂单 / 条件触发 · [云 DEV Paper]{.badge .badge-dev}</div>
 </div>
 
 <div class="tl-item" markdown>
 <div class="tl-dot tl-dot-3">💰</div>
 <div class="tl-date">2026 年 5 月中</div>
 <div class="tl-title">UAT 小额实盘启动</div>
-<div class="tl-desc">$10k 量级真钱 Live, 稳跑一周 · [UAT Live]{.badge .badge-uat}</div>
+<div class="tl-desc" markdown>$10k 量级真钱 Live, 稳跑一周 · [UAT Live]{.badge .badge-uat}</div>
 </div>
 
 <div class="tl-item" markdown>
 <div class="tl-dot tl-dot-4">🚀</div>
 <div class="tl-date">2026 年 5 月下</div>
 <div class="tl-title">PROD 大额实盘启动</div>
-<div class="tl-desc">正式交付, 大额实盘运行 · [PROD Live]{.badge .badge-prod}</div>
+<div class="tl-desc" markdown>正式交付, 大额实盘运行 · [PROD Live]{.badge .badge-prod}</div>
 </div>
 
 </div>
