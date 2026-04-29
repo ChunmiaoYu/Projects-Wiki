@@ -74,6 +74,7 @@ nav:
     - 决策记录:
       - options-trader/decisions/README.md
       - 2026-04-21 AI 自动盯盘方向: options-trader/decisions/2026-04-21-agentic-trading-redesign.md
+      - 2026-04-29 UI 重设计 v2: options-trader/decisions/2026-04-29-ui-redesign.md
     - 技术文档:
       - 项目概述: options-trader/01_overview.md
       - 系统架构: options-trader/02_architecture.md
@@ -87,6 +88,7 @@ nav:
     - 完整设计:
       - options-trader/specs/README.md
       - 2026-04-21 AI 自动盯盘 (完整版 v5): options-trader/specs/2026-04-21-agentic-trading-redesign-design.md
+      - 2026-04-29 UI 重设计 v2 (Dashboard + 暗色 + Greeks 普通话): options-trader/specs/2026-04-29-ui-redesign-design.md
   - 奥克兰在售房产搜索工具:
     - 项目看板: auckland-property-shortlist/dashboard/index.md
     - 看板历史: auckland-property-shortlist/dashboard-snapshots/index.md

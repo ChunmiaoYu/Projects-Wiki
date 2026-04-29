@@ -13,6 +13,7 @@
 | 日期 | 主题 | 触发条款 | 状态 |
 |---|---|---|---|
 | [2026-04-21](2026-04-21-agentic-trading-redesign.md) | Agentic Trading 重构（Agent 2 每 bar 自主决策） | 7/7 全部命中 | ✅ 五专家通过 |
+| [2026-04-29](2026-04-29-ui-redesign.md) | UI 重设计 v2（Dashboard 入口 + 暗色专业风格 + 分层展开 + Greeks 普通话） | ① + ⑤ | ✅ 五专家通过 + ALL SHIP |
 
 ## 相关
 

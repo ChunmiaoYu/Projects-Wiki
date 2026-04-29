@@ -18,6 +18,7 @@
 | 日期 | 主题 | 源文件 | 对应决策记录 |
 |---|---|---|---|
 | [2026-04-21](2026-04-21-agentic-trading-redesign-design.md) | Agentic Trading 重构（Agent 2 每 bar 自主决策）v5 | 项目 repo `docs/superpowers/specs/` | [decisions/2026-04-21](../decisions/2026-04-21-agentic-trading-redesign.md) |
+| [2026-04-29](2026-04-29-ui-redesign-design.md) | UI 重设计 v2（Dashboard 入口 + 暗色专业 + 分层展开 + Greeks 普通话） | 项目 repo `docs/superpowers/specs/2026-04-29-ui-redesign-design.md` | [decisions/2026-04-29](../decisions/2026-04-29-ui-redesign.md) |
 
 ## 相关
 
