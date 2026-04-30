@@ -70,6 +70,7 @@ nav:
   - 首页: index.md
   - 期权 AI 交易助手:
     - 客户看板: options-trader/dashboard/index.md
+    - 能力演示 (2026-05-01): options-trader/dashboard/agent-demo-2026-05-01.md
     - 看板历史: options-trader/dashboard-snapshots/index.md
     - 决策记录:
       - options-trader/decisions/README.md

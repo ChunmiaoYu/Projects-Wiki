@@ -5,7 +5,15 @@ hide:
 
 # :material-chart-box: 期权 AI 交易助手 · 项目看板
 
-> **最近更新**: 2026-04-23 · [:material-history: 查看历史版本](../dashboard-snapshots/)
+> **最近更新**: 2026-05-01 · [:material-history: 查看历史版本](../dashboard-snapshots/)
+
+---
+
+!!! tip ":material-presentation-play: 最新成果展示 · 中文意图解析能力（2026-05-01）"
+
+    **8 个真实场景** 一次性测试 — 客户用一句中文表达交易意图，系统全自动提取标的 / 方向 / 仓位 / 止盈止损等所有字段。系统对暂不支持的场景诚实告知，不糊弄。
+
+    [:material-arrow-right-circle: **进入完整演示**](agent-demo-2026-05-01.md)
 
 ---
 
