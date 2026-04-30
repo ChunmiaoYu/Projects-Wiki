@@ -375,4 +375,4 @@ CATEGORY_TO_EXPECTED_ACTIONS: dict[Category, set[Action]] = {
 
 **五专家签字**（brainstorming 2026-04-25）：全员 approve with P0 addressed。本 spec 吸收 13 组 P0 + 精选 P1。
 
-**归档**：内部讨论 → [discussions/2026-04-25-step-f-scenarios-v2-5expert-review.md](../discussions/2026-04-25-step-f-scenarios-v2-5expert-review.md)。脱敏公开版 → `docs-hub/docs/options-trader/specs/2026-04-25-scenarios-v2-framework-design.md`（本 spec 镜像）+ `docs-hub/docs/options-trader/decisions/2026-04-25-scenarios-v2-framework.md`（客户友好摘要）。
+**归档**：内部讨论 → `discussions/2026-04-25-step-f-scenarios-v2-5expert-review.md`（项目内部 repo, 不在公开 docs-hub）。脱敏公开版 → `docs-hub/docs/options-trader/specs/2026-04-25-scenarios-v2-framework-design.md`（本 spec 镜像）+ `docs-hub/docs/options-trader/decisions/2026-04-25-scenarios-v2-framework.md`（客户友好摘要）。
