@@ -11,7 +11,7 @@
 ### 1.1 真问题
 
 当前 Agent 2 review 是**无记忆的**：
-- `prompt_builder.build_review_prompt` 只塞当前 10 维 bundle 进 user message（[prompt_builder.py:49-53](../../src/options_event_trader/services/agent2/prompt_builder.py#L49-L53)）
+- `prompt_builder.build_review_prompt` 只塞当前 10 维 bundle 进 user message（`prompt_builder.py:49-53`）
 - DB 里 `Agent2Decision.reasoning` 字段每次都存 LLM 给的事件级理由，但**下次 review 不读它**
 - 后果：Agent 2 看不到"30 分钟前我已经 PARTIAL_CLOSE 了 30%"的脉络，每次都从空白开始判断剩余仓位
 
@@ -67,7 +67,7 @@ T+10min (review 2):
 
 ### 4.1 Pydantic — Agent2Decision discriminated union
 
-文件：[domain/agent2_decisions.py](../../src/options_event_trader/domain/agent2_decisions.py)
+文件：`domain/agent2_decisions.py`
 
 `_BaseDecision` 加字段（**4 种 action 全部继承**）：
 
@@ -83,7 +83,7 @@ class _BaseDecision(BaseModel):
 
 ### 4.2 DB — agent2_decisions 表
 
-文件：[db/models.py](../../src/options_event_trader/db/models.py) `Agent2Decision`
+文件：`db/models.py` `Agent2Decision`
 
 ```python
 thesis_summary_zh: Mapped[str | None] = mapped_column(Text, nullable=True, default=None)
@@ -96,7 +96,7 @@ thesis_summary_zh: Mapped[str | None] = mapped_column(Text, nullable=True, defau
 
 ### 4.3 Bundle — PositionState 加 realized_pnl（期权实战专家 P1）
 
-文件：[domain/agent2_bundle.py](../../src/options_event_trader/domain/agent2_bundle.py)
+文件：`domain/agent2_bundle.py`
 
 ```python
 class PositionState(BaseModel):
@@ -111,7 +111,7 @@ class PositionState(BaseModel):
     time_stop_at: datetime | None = None
 ```
 
-**packager 改动**：`collectors/position.py` 从 `Position.realized_pnl` 列读取（已经在 [worker/jobs.py:408 _compute_realized_pnl](../../src/options_event_trader/worker/jobs.py#L408) 算好入库）。
+**packager 改动**：`collectors/position.py` 从 `Position.realized_pnl` 列读取（已经在 `worker/jobs.py:408 _compute_realized_pnl` 算好入库）。
 
 **为什么必须加**：thesis 5 要素第 3 条"当前持仓状态浓缩"包含"已锁利润"。bundle 不给 LLM 这个数字，LLM 只能编造 — 违反"数据 not 概念"原则。
 
@@ -206,7 +206,7 @@ def downgrade() -> None:
 
 ### 5.4 prompt_builder 改造
 
-文件：[services/agent2/prompt_builder.py](../../src/options_event_trader/services/agent2/prompt_builder.py)
+文件：`services/agent2/prompt_builder.py`
 
 ```python
 def build_entry_prompt(bundle: Agent2DataBundle) -> tuple[str, str]:
@@ -231,7 +231,7 @@ def build_review_prompt(
 
 ### 5.5 Orchestrator 接入
 
-文件：[services/agent2/orchestrator.py](../../src/options_event_trader/services/agent2/orchestrator.py)
+文件：`services/agent2/orchestrator.py`
 
 review 路径在调 `build_review_prompt` 前先查 last thesis_summary_zh：
 
