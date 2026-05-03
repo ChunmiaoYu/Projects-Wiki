@@ -70,9 +70,12 @@ nav:
   - 首页: index.md
   - 期权 AI 交易助手:
     - 客户看板: options-trader/dashboard/index.md
-    - 完整链路展示 (2026-05-04 最新): options-trader/dashboard/agent-full-flow-demo-2026-05-04.md
-    - 能力演示 (2026-05-01): options-trader/dashboard/agent-demo-2026-05-01.md
-    - 看板历史: options-trader/dashboard-snapshots/index.md
+    - 看板历史:
+      - options-trader/dashboard-snapshots/index.md
+      - 2026-05-04 完整链路展示 (最新): options-trader/dashboard/agent-full-flow-demo-2026-05-04.md
+      - 2026-05-01 能力演示 (Agent 1 8 场景): options-trader/dashboard/agent-demo-2026-05-01.md
+      - 2026-04-23 看板快照: options-trader/dashboard-snapshots/2026-04-23.md
+      - 2026-04-22 看板快照: options-trader/dashboard-snapshots/2026-04-22.md
     - 决策记录:
       - options-trader/decisions/README.md
       - 2026-04-21 AI 自动盯盘方向: options-trader/decisions/2026-04-21-agentic-trading-redesign.md
