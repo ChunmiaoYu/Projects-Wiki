@@ -5,15 +5,17 @@ hide:
 
 # :material-chart-box: 期权 AI 交易助手 · 项目看板
 
-> **最近更新**: 2026-05-01 · [:material-history: 查看历史版本](../dashboard-snapshots/)
+> **最近更新**: 2026-05-04 · [:material-history: 查看历史版本](../dashboard-snapshots/)
 
 ---
 
-!!! tip ":material-presentation-play: 最新成果展示 · 中文意图解析能力（2026-05-01）"
+!!! tip ":material-presentation-play: 最新完整链路展示 · Agent 1 + Agent 2 全流程（2026-05-04）"
 
-    **8 个真实场景** 一次性测试 — 客户用一句中文表达交易意图，系统全自动提取标的 / 方向 / 仓位 / 止盈止损等所有字段。系统对暂不支持的场景诚实告知，不糊弄。
+    **2 周新增能力一次看完** — Agent 1 极致瘦身 (一句话即可下单) + Agent 2 持续思考链 (复盘不再失忆) + 后台工人显化 (系统活没活看得见) + 完整 V9 AMZN 10 步流程 (含假设场景明确标注)。
 
-    [:material-arrow-right-circle: **进入完整演示**](agent-demo-2026-05-01.md)
+    [:material-arrow-right-circle: **进入最新完整链路展示**](agent-full-flow-demo-2026-05-04.md)
+
+    [:material-history: 查看 2026-05-01 上次演示 (Agent 1 8 场景)](agent-demo-2026-05-01.md)
 
 ---
 
