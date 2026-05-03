@@ -42,6 +42,15 @@ extra_css:
 plugins:
   - search:
       lang: zh
+  - glightbox:
+      touchNavigation: true
+      loop: false
+      effect: zoom
+      slide_effect: slide
+      width: 100%
+      height: auto
+      zoomable: true
+      draggable: true
 
 markdown_extensions:
   - attr_list
