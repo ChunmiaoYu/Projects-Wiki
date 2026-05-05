@@ -1,4 +1,4 @@
-# ⭐ 北极星 §1 — 本版目标
+# ⭐ 北极星 §1 — 项目第一版目标
 
 > **决策门禁**: 任何 spec / 功能规划 / "是否在 scope" 决策前先读此文档。任何字段、流程、维度变更回到此文档同步。
 >
@@ -50,9 +50,12 @@
 3 个工人不是永远在线, 工作时段 = 美股 (ASX 测试时是 ASX) 开盘前 30 min 至收盘, 盘后睡眠。
 
 **每天上线第一件事** (<span class="term-worker">时间工人</span>主导):
+
 1. 重连 <span class="term-service">IB Gateway</span> (前一日所有订阅已失效, <span class="term-service">IBKR</span> 标准行为)
 2. 检查所有活跃<span class="term-state">机会单</span>的时间窗口, 已过截止日期的转 <span class="term-state">失败单</span>
-3. 重新订阅活跃<span class="term-state">机会单</span>涉及的标的数据
+3. **重建数据获取** — 分两类:
+    - **持续订阅** (流式, 整天活跃): 活跃<span class="term-state">机会单</span>涉及的标的 Level 1 quote / <span class="term-state">持仓单</span>的合约 quote + Greeks / 宏观 VIXY + SPY
+    - **一次性 query 但每天重拉** (历史数据不变但需 fresh, 因为前一日 close 进了新一日的窗口): 各<span class="term-state">机会单</span>的条件计算所需的历史 bar (e.g. MA20 需要前 19 天日 bar, 一次拉到再加今天 LAST 算) / 期权链 metadata (新合约上市/老到期会变) / 标的近期 N 根 bar
 4. 唤醒 <span class="term-worker">条件工人</span> / <span class="term-worker">信息工人</span>
 
 ---
@@ -286,12 +289,12 @@ LLM 输入 = **10 维 Bundle + 上次决策的 summary** (rolling summary 模式
 
 **4. <span class="term-worker">信息工人</span> (entry phase)**:
 
-- 拉 9 维 bundle (维度 5/10 跳过, entry 没持仓也没历史)
+- 拉 9 维 bundle
 - 调 <span class="term-agent">Agent 2</span> LLM
 
 **5. <span class="term-agent">Agent 2</span> entry 决策**:
 
-- 看 9 维 + 客户原话 + direction=BULLISH + trigger metadata
+- 看 9 维信息, 遵守标的、仓位和方向门禁下单
 - LLM 输出: `{strategy: "LONG_CALL", legs: [{symbol:"AAPL", expiry:"20260618", strike:285, right:"C", quantity:100, action:"BUY"}], thesis_summary: "客户突破 285 入场, IV 24% 合理, CP ratio 8.35 强看涨, 选 ATM call 一致看涨意图"}`
 - <span class="term-service">风险门</span>三验证: symbol=AAPL ✓ / direction LONG_CALL→BULLISH ✓ / 仓位 100 手 ≤ 客户指定 ✓ → 通过
 - 下单 LMT @ ask = $9.55

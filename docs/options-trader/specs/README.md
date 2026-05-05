@@ -8,7 +8,7 @@
 
 | 序号 | 文档 | 谁该读 | 何时读 |
 |---|---|---|---|
-| **1** | ⭐ [**北极星 §1 — 本版目标**](north-star-v1-target.md) | **所有人必读** | 看任何其他 spec 之前 |
+| **1** | ⭐ [**北极星 §1 — 项目第一版目标**](north-star-v1-target.md) | **所有人必读** | 看任何其他 spec 之前 |
 | 2 | [2026-04-21 AI 自动盯盘 (完整版 v5)](2026-04-21-agentic-trading-redesign-design.md) | 想了解 <span class="term-agent">Agent 2</span> 持续决策细节的人 | 北极星 §1 看完后 |
 | 3 | [2026-04-29 UI 重设计 v2](2026-04-29-ui-redesign-design.md) | 想了解前端架构的人 | 看完上面两个后 |
 
