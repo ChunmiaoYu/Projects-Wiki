@@ -235,3 +235,10 @@
 .md-grid {
   max-width: 1920px;
 }
+
+/* mkdocs Material 默认 table 是 display:inline-block 不填满内容区,
+   数据密集型表格强制填满 */
+.md-typeset table:not([class]) {
+  display: table;
+  width: 100%;
+}
