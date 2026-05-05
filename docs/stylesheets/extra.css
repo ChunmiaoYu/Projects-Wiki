@@ -266,6 +266,19 @@
   margin-top: 1.6em !important;
 }
 
+/* h2 序号区分 — 用 etxra 颜色 + 等宽字体让数字显眼 */
+.md-typeset h2 .h-num {
+  color: #00bcd4;
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-weight: 800;
+  font-size: 0.95em;
+  margin-right: 0.35em;
+  opacity: 0.9;
+}
+[data-md-color-scheme="default"] .md-typeset h2 .h-num {
+  color: #0097a7;
+}
+
 /* ============================================
    术语视觉系统 — 4 类术语区分色
    .term-agent (Agent 1/2): 紫

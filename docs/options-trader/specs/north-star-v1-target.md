@@ -8,7 +8,7 @@
 
 ---
 
-## 1. 主用户 / 主入口 / 生产市场
+## <span class="h-num">1.</span> 主用户 / 主入口 / 生产市场
 
 | 项 | 内容 |
 |---|---|
@@ -18,7 +18,7 @@
 
 ---
 
-## 2. 系统构成
+## <span class="h-num">2.</span> 系统构成
 
 由 <span class="term-agent">Agent 1</span> (LLM 解析) + <span class="term-agent">Agent 2</span> (LLM 决策) + **3 个工人** (盘前 30 min 上线 → 盘后睡眠) 构成。
 
@@ -45,7 +45,7 @@
 
 ---
 
-## 3. 工人工作时段
+## <span class="h-num">3.</span> 工人工作时段
 
 3 个工人不是永远在线, 工作时段 = 美股 (ASX 测试时是 ASX) 开盘前 30 min 至收盘, 盘后睡眠。
 
@@ -60,7 +60,7 @@
 
 ---
 
-## 4. <span class="term-agent">Agent 1</span> — 解析 + validate
+## <span class="h-num">4.</span> <span class="term-agent">Agent 1</span> — 解析 + validate
 
 ### 4.1 作用一: 解析 3 个关键信息
 
@@ -68,7 +68,7 @@
 |---|---|---|
 | **symbol** (标的) | 必填 | LLM 能从中文公司名映射到代码 (如"特斯拉"→TSLA, "苹果"→AAPL); 真无法解析才阻塞 |
 | **触发条件** | 必填 | 触发的就是 <span class="term-agent">Agent 2</span> 下单 |
-| **direction** (方向) | 可 null | 看涨 / 看跌 / 看波动; null 时 <span class="term-agent">Agent 2</span> 自由发挥, 非 null 时 <span class="term-agent">Agent 2</span> 必须严格遵守 |
+| **direction** (方向) | 可 null | **看涨 / 看跌 / 看波动**; null 时 <span class="term-agent">Agent 2</span> 自由发挥, 非 null 时 <span class="term-agent">Agent 2</span> 必须严格遵守 (用户指定看波动 → LLM 自决用买波动还是卖波动策略) |
 
 **触发条件 4 种** (本版本):
 
@@ -98,15 +98,16 @@
 
 ---
 
-## 5. <span class="term-agent">Agent 2</span> — 入场决策 + 仓位管理
+## <span class="h-num">5.</span> <span class="term-agent">Agent 2</span> — 入场决策 + 仓位管理
 
 <span class="term-agent">Agent 2</span> 是**无状态 LLM 调用**, 由 <span class="term-worker">信息工人</span>召唤。
 
 ### 5.1 入场决策 (<span class="term-worker">信息工人</span>第一次发 bundle)
 
-LLM 输入 = **10 维 Bundle** (含客户原话 + 触发那一刻的指标值)
+LLM 输入 = **10 维 Bundle** (维度 1-9 都有值; 维度 10 "上次 summary" 在入场时为 null, 因为还没历史)
 
 输出二选一:
+
 - **不能下单** → <span class="term-state">机会单</span>转 <span class="term-state">失败单</span>, 失败原因 = "Agent-2 拒绝"
 - **可以下单** → 给出策略 (含策略类型 / 腿 / 数量) → <span class="term-service">风险门</span> (risk_gate) 三验证 (symbol / direction / 仓位)
     - **三验证全过** → 下单 → 成功后转 <span class="term-state">持仓单</span>
@@ -116,22 +117,29 @@ LLM 输入 = **10 维 Bundle** (含客户原话 + 触发那一刻的指标值)
 
 ### 5.2 仓位管理 (<span class="term-state">持仓单</span>, 每 5 min 触发)
 
-LLM 输入 = **10 维 Bundle + 上次决策的 summary** (rolling summary 模式)
+LLM 输入 = **10 维 Bundle** (此时维度 5 持仓盈亏已有值, 维度 10 上次 summary 也填了 — rolling summary 模式累积持仓上下文)
 
 输出 = **本次 summary** (≤600 字, 含历史决策关键点 + 当前决策原因 + 用数据说话) + 三选一:
+
 - **仓位不变** (不做任何操作)
 - **加仓** (具体多少手 + 用什么策略买)
 - **平仓** (平部分多少手 / 一次全平)
 
 全部平仓完成 → <span class="term-state">持仓单</span>转 <span class="term-state">已完成单</span>。
 
-### 5.3 客户期权不用机械止损
+### 5.3 客户不要止损 — LLM 自主决定平仓时机
 
-平仓决策 = LLM 综合判断 (赚到目标 / 市场反转 / 接近到期), 不是触及某个固定价位。期权买方天然亏损上限 = 权利金, 客户接受亏光。
+期权买方 (买 call / 买 put / 买跨式 / 买勒式) **天然有亏损上限** = 入场时付的权利金, 不会爆仓。所以本系统**不设固定止损线**:
+
+- 不像股票那样"跌破 $X 自动平仓"
+- 不像期货那样"亏 N% 强制止损"
+- 平仓时机完全由 <span class="term-agent">Agent 2</span> LLM 综合判断 (达到客户目标 / 市场反转明显 / 临近到期等), **不让客户在入场时定死止损价位**
+
+客户认可最坏情况 = 权利金亏光, 这是期权买方的天然风险界限。
 
 ---
 
-## 6. 4 种触发流程串联
+## <span class="h-num">6.</span> 4 种触发流程串联
 
 ```
 1. 立即单:    Agent 1 → 时间工人 (now 立即) → 信息工人 → Agent 2 → IBKR 下单
@@ -142,7 +150,7 @@ LLM 输入 = **10 维 Bundle + 上次决策的 summary** (rolling summary 模式
 
 ---
 
-## 7. <span class="term-state">机会单</span>状态机
+## <span class="h-num">7.</span> <span class="term-state">机会单</span>状态机
 
 ```
 [草稿]  ──客户确认──→  [机会单]  ──注册工人──┐
@@ -162,9 +170,12 @@ LLM 输入 = **10 维 Bundle + 上次决策的 summary** (rolling summary 模式
 
 ---
 
-## 8. 10 维 Bundle 详表
+## <span class="h-num">8.</span> 10 维 Bundle 详表
 
-入场用 **9 维** (1-4, 6-9 + 10 mock); <span class="term-state">持仓单</span> review 用 **10 维** (含维度 5 持仓盈亏 + 维度 10 上次 summary)。
+**入场和持仓 review 都用 10 维**, schema 永远 10 维。区别只在某些维度 entry phase 时为 null (因为还没发生):
+
+- **入场**: 维度 5 (持仓盈亏) 为 null (还没持仓); 维度 10 (上次 summary) 为 null (还没历史)
+- **持仓 review**: 10 维都有值
 
 数据样本来自 2026-05-06 真 <span class="term-service">IBKR</span> paper 实测 (AAPL, 美股盘中, 真下 100 手 ATM LONG_CALL + 自动平仓)。
 
@@ -179,7 +190,7 @@ LLM 输入 = **10 维 Bundle + 上次决策的 summary** (rolling summary 模式
 | 7 | **IV 曲面** | 派生自 4+6 (一次性) | 几分钟更新 | `{atm_strike, iv_by_strike_call: {strike: iv}, iv_by_strike_put: {strike: iv}, skew_summary, term_structure_summary}`<br>**skew** = 横向 (不同 strike 的 IV 形状); **term** = 纵向 (不同 expiry 的 IV 形状) | `ATM=$285, ±10 档 5 strikes 各 C/P = 10 合约; OTM put 略高 ATM 1.5 vol pts (常态)` | 当前 IV 高估/低估; skew 大 = 恐慌可能反转 → 决定是否离场 |
 | 8 | **Order flow** | 派生自合约链 (一次性) | 几分钟更新 | `{call_volume_total, put_volume_total, call_put_volume_ratio, call_oi_total, put_oi_total, call_put_oi_ratio, interpretation}`<br>**OI** = 持仓量 open interest; **ratio** = call/put | `call_vol=14761 / put_vol=1768 / ratio=8.35` — 强看涨情绪 (跟当日涨势一致) | 期权市场情绪指标; ratio 极端 (>5 或 <0.2) 常预示反转 → 决定是否减仓避险 |
 | 9 | **市场宏观** | snapshot 一次 | 持续订阅 | `{VIXY: {bid, ask, last, volume, interpretation}, SPY: {...}}`<br>**VIXY** = ProShares VIX Short-Term Futures ETF (paper 没 CBOE Index 用 ETF 替代); **SPY** = S&P 500 ETF (大盘) | `VIXY $27.29 (低位 = 市场情绪平稳)` + `SPY $724.39 (大盘强势)` | 整体市场恐慌 + 大盘走势; 单标的决策应否被宏观风险压倒 (VIX 飙升时主动减仓) |
-| 10 | **上次 summary** (review only) | entry 没历史 → null | DB 取上次 LLM 输出 | `string ≤600 字` (一段文本) | 文本含上次决策关键点 + 当前决策原因 + 用数据说话 | 历史决策上下文; 防 review 之间剧烈摇摆 (上次 HOLD 这次突然 FULL_CLOSE 没理由), 决策连贯 |
+| 10 | **上次 summary** | entry 没历史 → null | DB 取上次 LLM 输出 | `string ≤600 字 或 null` (一段文本) | 文本含上次决策关键点 + 当前决策原因 + 用数据说话 | 历史决策上下文; 防 review 之间剧烈摇摆 (上次 HOLD 这次突然 FULL_CLOSE 没理由), 决策连贯 |
 
 ### 完整 Bundle JSON 样本 (<span class="term-state">持仓单</span> review phase, 10 维齐全)
 
@@ -289,12 +300,12 @@ LLM 输入 = **10 维 Bundle + 上次决策的 summary** (rolling summary 模式
 
 **4. <span class="term-worker">信息工人</span> (entry phase)**:
 
-- 拉 9 维 bundle
+- 拉 10 维 bundle (维度 5 持仓盈亏 + 维度 10 上次 summary 此时为 null)
 - 调 <span class="term-agent">Agent 2</span> LLM
 
 **5. <span class="term-agent">Agent 2</span> entry 决策**:
 
-- 看 9 维信息, 遵守标的、仓位和方向门禁下单
+- 看 10 维信息, 遵守标的、仓位和方向门禁下单
 - LLM 输出: `{strategy: "LONG_CALL", legs: [{symbol:"AAPL", expiry:"20260618", strike:285, right:"C", quantity:100, action:"BUY"}], thesis_summary: "客户突破 285 入场, IV 24% 合理, CP ratio 8.35 强看涨, 选 ATM call 一致看涨意图"}`
 - <span class="term-service">风险门</span>三验证: symbol=AAPL ✓ / direction LONG_CALL→BULLISH ✓ / 仓位 100 手 ≤ 客户指定 ✓ → 通过
 - 下单 LMT @ ask = $9.55
@@ -303,7 +314,7 @@ LLM 输入 = **10 维 Bundle + 上次决策的 summary** (rolling summary 模式
 
 **7. 5 min 后, <span class="term-worker">信息工人</span> review phase**:
 
-- 拉完整 10 维 bundle (含维度 5 持仓盈亏 + 维度 10 上次 summary)
+- 拉完整 10 维 bundle (此时维度 5 持仓盈亏 + 维度 10 上次 summary 都填了)
 - 调 <span class="term-agent">Agent 2</span> LLM
 - LLM 输出: `{decision: "HOLD", new_summary: "...", reason: "未实现 -0.83% 远未到 60% 目标, 趋势没反转, 维持持仓"}`
 - 持仓不动, 下次 review 用本次 summary
@@ -312,56 +323,22 @@ LLM 输入 = **10 维 Bundle + 上次决策的 summary** (rolling summary 模式
 
 ---
 
-## 9. 关键约束 (本版本必守)
-
-| 类别 | 约束 |
-|---|---|
-| <span class="term-agent">Agent 1</span> 角色 | 给工人派活, 不防 LLM 改原话, 不替 <span class="term-agent">Agent 2</span> 决策具体参数 |
-| 必填字段 | symbol / 触发条件 (必填); direction 非必填但非 null 时强约束 |
-| direction 4 值 | BULLISH (看涨) → 必须做看涨策略; BEARISH (看跌) → 看跌; VOLATILITY (看波动) → 中性/波动率; null → <span class="term-agent">Agent 2</span> 自由 |
-| 触发条件限定 | 4 类: 立即 / 时间 / 条件 / 时间+条件; 条件类**只**支持 PRICE_BREACH 常数 + MA_CROSSOVER 单 MA, 不在范围 → 阻塞 |
-| 3 工人角色 | <span class="term-worker">时间工人</span> (scheduler 计时) / <span class="term-worker">条件工人</span> (算条件) / <span class="term-worker">信息工人</span> (打 bundle 召唤 <span class="term-agent">Agent 2</span>) — 盘前 30 min 上线, 盘后睡眠 |
-| 数据基础设施 | <span class="term-service">MarketDataBus</span> 全局单例; 入场用 snapshot 不订阅; 持仓后才建持续订阅 (LAST + 持仓合约 + 宏观 VIXY/SPY) |
-| <span class="term-service">风险门</span> (risk_gate) 二层防护 | Layer 1: LLM 输出 schema enum 限制策略只能在白名单 9 种内; Layer 2: "策略 → 方向"映射表对照 opp.direction, 不匹配**先要求 LLM 重跑一次**, 重跑仍违 → <span class="term-state">失败单</span> |
-| 策略白名单 (无裸卖空) | 见下表 |
-| 客户体验 | 前端中文; 客户改解析回输入框改原话重新解析, 不点字段直接改; 阻塞原因要展示给客户 |
-| 不止损 | 期权要么亏光要么赚钱离场, 没有机械止损线 |
-
-### 策略白名单 9 种 (无裸卖空)
+## <span class="h-num">9.</span> 方向策略白名单 (无裸卖空)
 
 | 方向 | 允许策略 | 备注 |
 |---|---|---|
-| BULLISH | LONG_CALL / BULL_CALL_SPREAD / BULL_PUT_SPREAD (有保护) | 看涨 |
-| BEARISH | LONG_PUT / BEAR_PUT_SPREAD / BEAR_CALL_SPREAD (有保护) | 看跌 |
-| VOLATILITY 买波动 | LONG_STRADDLE / LONG_STRANGLE | 中性, 波动放大才赚 |
-| VOLATILITY 卖波动 (有保护) | IRON_CONDOR / IRON_BUTTERFLY | 中性, 不大动才赚 |
+| BULLISH (看涨) | LONG_CALL / BULL_CALL_SPREAD / BULL_PUT_SPREAD (有保护) | 共 3 种 |
+| BEARISH (看跌) | LONG_PUT / BEAR_PUT_SPREAD / BEAR_CALL_SPREAD (有保护) | 共 3 种 |
+| VOLATILITY (看波动) | LONG_STRADDLE / LONG_STRANGLE / IRON_CONDOR / IRON_BUTTERFLY | 共 4 种, 用户指定看波动 → LLM 看 IV / 客户偏好自决"买波动" (LONG_*) 或"卖波动有保护" (IRON_*) |
+| null (用户未指定) | 上面 10 种全可 | LLM 完全自由发挥 |
 
-> **裸卖空 (SHORT_CALL / SHORT_PUT / SHORT_STRADDLE 等亏损无底线策略) 永久禁止**, LLM 输出 schema 物理上无法生成。
+> **裸卖空** (SHORT_CALL / SHORT_PUT / SHORT_STRADDLE / SHORT_STRANGLE 等亏损无底线策略) **永久禁止**。LLM 输出 schema 物理上无法生成 (Structured Outputs enum 限制), 不依赖 LLM 自律。
 
----
-
-## 10. 数据基础设施真实测试结果 (2026-05-06)
-
-10 维数据可获得性已用 <span class="term-service">IBKR</span> paper 账户实测 (AAPL ATM 100 手 LONG_CALL 真下单 + 平仓):
-
-| 维度 | 状态 | 备注 |
-|---|---|---|
-| 1 客户原话 | ✓ | DB 静态 |
-| 2 标的 quote | ✓ | bid/ask/last/sizes/volume 全到 (delayed 数据) |
-| 3 标的 bar | ✓ | 1 min × 1 D (307 根) / 5 min × 5 D (369 根) / 1 day × 20 D (20 根) |
-| 4 期权链 | ✓ | 25 expiries / 116 strikes |
-| **5 持仓 P&L** | ✓ | **真下 100 手实测**, 派生公式确认: cost=$95,544.90 / value=$94,750 / pnl=-$794.90 (-0.83%) |
-| 6 ATM Greeks | ✓ | IV 24.3% / Δ 0.52 / Γ 0.017 / Θ -0.125 / V 0.393 |
-| 7 IV 曲面 | ✓ | ATM ± 10 档 5 strikes 全 resolve |
-| 8 Order flow | ✓ | call/put volume ratio = 8.35 |
-| 9 macro | ✓ | SPY ✓ + VIXY ✓ (替代 VIX) |
-| 10 上次 summary | ✓ | DB 静态 |
-
-**Level 2 / NASDAQ TotalView**: 当前 <span class="term-service">OPRA</span> $32.75/月 不含 depth, 经实测确认 (error 10089)。第一版不订, depth 边际价值不及成本。
+> 总计 **10 种**白名单策略。
 
 ---
 
-## 11. 维护规则
+## <span class="h-num">10.</span> 维护规则
 
 - 任何 invariant / 字段 / 流程 / 维度变更 → 同步本文档
 - 数据样本季度 refresh 一次 (跑 phase1 probe 脚本即可)
