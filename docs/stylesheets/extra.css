@@ -236,9 +236,12 @@
   max-width: 1920px;
 }
 
-/* mkdocs Material 默认 table 是 display:inline-block 不填满内容区,
-   数据密集型表格强制填满 */
+/* mkdocs Material 默认 .md-typeset__table 包裹层是 display:inline-block,
+   导致表格不填满内容区。数据密集型 wiki 强制 block + width:100% */
+.md-typeset__table {
+  display: block;
+  width: 100%;
+}
 .md-typeset table:not([class]) {
-  display: table;
   width: 100%;
 }
