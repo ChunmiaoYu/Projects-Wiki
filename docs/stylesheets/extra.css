@@ -239,9 +239,9 @@
 /* mkdocs Material 默认 .md-typeset__table 包裹层是 display:inline-block,
    导致表格不填满内容区。数据密集型 wiki 强制 block + width:100% */
 .md-typeset__table {
-  display: block;
-  width: 100%;
+  display: block !important;
+  width: 100% !important;
 }
 .md-typeset table:not([class]) {
-  width: 100%;
+  width: 100% !important;
 }
