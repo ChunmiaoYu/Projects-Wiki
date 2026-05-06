@@ -479,7 +479,7 @@ sequenceDiagram
 
 > CALENDAR_SPREAD = 同 strike 不同 expiry, 卖近月买远月; DIAGONAL_SPREAD = 不同 strike + 不同 expiry。**都是净 debit 有限亏, 非裸卖空**。
 
-> **4 腿策略流动性约束** (IRON_CONDOR / IRON_BUTTERFLY): 100+ 手量级 BAG combo 撮合需全腿同时 fill, 大单经常部分成交→暴露裸腿。**仅限 SPY / QQQ / IWM 等 top 10 高流动性标的 + 单腿 OI ≥ 500 contracts**; 其他标的 Agent 2 自动降级 SPREAD (2 腿)。
+> **4 腿策略流动性指引** (IRON_CONDOR / IRON_BUTTERFLY, **2026-05-06 反转为 soft hint 不是 hard gate**): 100+ 手量级 BAG combo 撮合需全腿同时 fill, 大单经常部分成交→暴露裸腿。**Agent 2 看 10 维 bundle (dim 4 期权链 + dim 8 OI/volume) 自决** — 不在 schema 写硬约束 (跟"信任 LLM"哲学一致, 同"不强制止损")。prompt 文件 `prompts/agent2_shared/risk_guidelines.md` 给指引: **OI ≥ 1000 + 当日 volume ≥ 100 + bid-ask spread ≤ 5% mid**; 不达标主动降级 SPREAD (2 腿) 或拒绝。改阈值改 prompt 文件即可, 不需 alembic 不需重启。**Hard gate 仅用于"出错=无限亏损" 风险红线** (裸卖空永久禁止 / 12 策略白名单 enum)。
 
 > 总计 **12 种**白名单策略。
 

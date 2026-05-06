@@ -104,6 +104,7 @@ nav:
       - options-trader/specs/README.md
       - ⭐ 北极星 §1 — 项目第一版目标: options-trader/specs/north-star-v1-target.md
       - ⭐ 架构通俗讲解 — 一个场景跑通整个系统: options-trader/specs/architecture-walkthrough.md
+      - 2026-05-06 DB Schema 重构 (任务队列驱动): options-trader/specs/2026-05-06-db-schema-task-queue-design.md
       - 2026-04-21 AI 自动盯盘 (完整版 v5): options-trader/specs/2026-04-21-agentic-trading-redesign-design.md
       - 2026-04-29 UI 重设计 v2 (Dashboard + 暗色 + Greeks 普通话): options-trader/specs/2026-04-29-ui-redesign-design.md
   - 奥克兰在售房产搜索工具:
