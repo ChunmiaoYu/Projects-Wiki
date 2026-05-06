@@ -38,25 +38,56 @@
 | <span class="term-worker">条件工人</span> | MarketDataPool 的 tick callback 里的条件计算逻辑 |
 | <span class="term-worker">信息工人</span> | `CONDITION_MET` / `AGENT2_REVIEW_TICK` handler 里拉 bundle + 喂 LLM 的代码 |
 
+```mermaid
+graph TB
+    AP["⏰ APScheduler<br/>+ pandas_market_calendars<br/>+ ZoneInfo America/New_York<br/><i>(唯一会主动产生任务的)</i>"]
+    Q["📋 任务队列<br/>workflow_tasks 表<br/>+ in-memory queue"]
+
+    H1["SYSTEM_WAKE_UP<br/>SYSTEM_SLEEP"]
+    H2["CONDITION_MET<br/>AGENT2_REVIEW_TICK"]
+    H3["EXECUTE_DECISION"]
+    H4["ENTRY_FILLED<br/>EXIT_FILLED<br/>EXPIRE_OPPORTUNITY"]
+
+    MD["📡 MarketDataPool<br/>client_id 10-19<br/><i>持续订阅+引用计数去重</i>"]
+    QC["🔍 QueryClient<br/>client_id 20<br/><i>一次性 query</i>"]
+    OC["💰 OrderClient<br/>client_id 30<br/><i>下单独占</i>"]
+    AS["📊 AccountSnapshotClient<br/>client_id 40<br/><i>cache TTL 5s 共享</i>"]
+
+    IBGW["🏛️ IB Gateway"]
+
+    AP -->|塞任务| Q
+    Q -->|取任务| H1
+    Q -->|取任务| H2
+    Q -->|取任务| H3
+    Q -->|取任务| H4
+    H1 --> MD
+    H1 --> QC
+    H1 --> OC
+    H1 --> AS
+    H2 --> MD
+    H2 --> QC
+    H2 --> AS
+    H3 --> OC
+    H4 --> AS
+    MD -.->|TCP socket 长连| IBGW
+    QC -.->|TCP socket 长连| IBGW
+    OC -.->|TCP socket 长连| IBGW
+    AS -.->|TCP socket 长连| IBGW
+
+    classDef sched fill:#fff3e0,stroke:#e65100,color:#000
+    classDef queue fill:#e8eaf6,stroke:#1a237e,color:#000
+    classDef handler fill:#e8f5e9,stroke:#1b5e20,color:#000
+    classDef pool fill:#e1f5fe,stroke:#01579b,color:#000
+    classDef ext fill:#fce4ec,stroke:#880e4f,color:#000
+
+    class AP sched
+    class Q queue
+    class H1,H2,H3,H4 handler
+    class MD,QC,OC,AS pool
+    class IBGW ext
 ```
-              ┌─────────  IB Gateway  ─────────┐
-              │ (账户资金 / 时间信号 / 数据 / 下单) │
-              └─────────────┬───────────────────┘
-                            │ 长连接 (4 socket, client_id 10/20/30/40)
-              ┌─────────────┴────────────────────────────────┐
-              │  4 Pool/Client (基础设施)                     │
-              │  MarketData / Query / Order / AccountSnapshot │
-              └─────────────┬────────────────────────────────┘
-                            │
-              ┌─────────────┴────────────────┐
-              │  8 handler (任务消费者)       │
-              │  ↑↓ 任务队列 workflow_tasks 表 │
-              └─────────────┬────────────────┘
-                            │
-              ┌─────────────┴────────────────┐
-              │  APScheduler (任务生产者)     │
-              └──────────────────────────────┘
-```
+
+> **完整一天典型流程示例** (AAPL 突破 280 买 100 手 call → 监控 → 入场 → 5 min review × N → 部分平仓 → 全平 → 取消订阅): 见 [⭐ 架构通俗讲解 §4 Step 0-9](architecture-walkthrough.md#h-num4-完整场景--aapl-突破-280-买-100-手-call) — 每一步在上图哪个组件发生的, 那里都标了。
 
 **所有外部数据 / 操作都过 <span class="term-service">IB Gateway</span>**, 必走 4 个 Pool/Client 之一:
 
@@ -93,6 +124,35 @@
 4. (handler 们自动开始消费任务, **不需要单独"唤醒条件/信息工人"** — 它们是 callback / handler 不是独立进程)
 
 **Pool 自治重连**: 网络断 / IB Gateway 异常重启 / 周日维护后恢复 — Pool 内部 retry (指数退避 30s→1min→2min→5min→...) + 重连成功后自动遍历 ref_count > 0 全部 resubscribe + 通知业务层 "POOL_READY"。**业务层完全不感知连接事件**。
+
+> **Pool 自治重连场景例**: 早上 09:30 ET 你忘了按手机 IBKey, IB Gateway 没启动。时间工人 09:00 ET 已塞 SYSTEM_WAKE_UP, MarketDataPool connect 失败 → 进 retry 循环。10:15 ET 你看到手机推送按确认, IB Gateway 上线。10:17 ET MarketDataPool 下次 retry 成功 → 自动 resubscribe 所有 ref_count > 0 的 symbol → 业务层正常恢复。**时间工人不需要重发 SYSTEM_WAKE_UP**。详见 [架构通俗讲解 §7 三类掉线 + 应对](architecture-walkthrough.md#h-num7-掉线了怎么办--3-类异常--应对)。
+
+### 一日时间线
+
+```mermaid
+timeline
+    title 一日工作时段 (NYSE regular session, ET 时区)
+    08:00 ET (盘前 90 min) : APScheduler 进入待命
+                            : (盘前到点前不主动调 IBKR)
+    09:00 ET (盘前 30 min) : SYSTEM_WAKE_UP
+                            : 4 Pool 全部 connect
+                            : ref_count > 0 symbol 全部 resubscribe
+                            : QueryClient 拉每日 MA20 等历史 bar
+    09:30 ET (盘开)         : MarketDataPool 收 tick 流
+                            : 条件工人 callback 自动算条件
+                            : 满足条件 → CONDITION_MET → Agent 2 入场
+    盘中持续                 : 每 5 min review 持仓 (正常时段)
+                            : 事件 ±15 min 窗口 → 连续 loop (15-30s/轮)
+                            : newsTicker 加塞紧急 review
+    16:00 ET (盘后)         : SYSTEM_SLEEP
+                            : 业务停 (active_reviews 表保留)
+                            : 4 socket 等 IBGW 自动断
+    05:30 ET 次日           : IB Gateway auto-restart
+                            : oatworker daily 2FA 行为待实测
+    周日 ET                  : IBKR 强制维护窗口
+                            : 全部断, 必须手动 2FA
+    周一 09:00 ET           : SYSTEM_WAKE_UP 循环开始
+```
 
 ---
 
@@ -164,6 +224,54 @@ LLM 输入 = **10 维 Bundle** (此时维度 5 持仓盈亏已有值, 维度 10 
 | **事件公布瞬间** | 立即加塞 | newsTicker callback 收到 earnings news → 立即塞一次 `AGENT2_REVIEW_TICK(opp_id, urgent=True)` 跳过等待 |
 
 **为什么连续 loop 不写死间隔**: LLM 决策延迟 ~15-30s, 写死 30s 间隔 = 上一轮没出结果下一轮又开始, 重叠堆栈反而不稳。连续 loop = "前一次完成立即下一次", 节奏由实测延迟决定。
+
+#### Review 节奏对比图
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant T as ⏰ APScheduler
+    participant Q as 📋 任务队列
+    participant H as handler
+    participant L as Agent 2 LLM
+
+    rect rgb(232, 245, 233)
+    Note over T,L: 正常时段 (盘中无事件) — 5 min 固定间隔
+    loop 每 5 min
+        T->>Q: AGENT2_REVIEW_TICK(opp_5)
+        Q->>H: 取任务
+        H->>L: 拉 bundle + 喂 LLM (~15s)
+        L-->>H: HOLD / PARTIAL_CLOSE / FULL_CLOSE
+        Note over H: handler 完成
+    end
+    end
+
+    rect rgb(255, 224, 224)
+    Note over T,L: 事件 ±15min 窗口 (e.g. AAPL earnings 14:30 ET)
+    Note over T: review_interval_sec 300 → 30
+    loop 连续 (前次完成→立即下一次)
+        T->>Q: AGENT2_REVIEW_TICK(opp_5)
+        Q->>H: 取任务
+        H->>L: 拉 bundle + 喂 LLM (timeout 25s)
+        L-->>H: 决策
+    end
+    end
+
+    rect rgb(255, 243, 224)
+    Note over T,L: 14:30 ET earnings 公布瞬间
+    Note over T: newsTicker 加塞紧急 review
+    T->>Q: AGENT2_REVIEW_TICK(opp_5, urgent=True) ← 跳过等待
+    Q->>H: 取任务
+    H->>L: 紧急决策
+    end
+
+    rect rgb(232, 245, 233)
+    Note over T,L: 14:46 ET 窗口结束 → 回正常 5 min 间隔
+    Note over T: review_interval_sec 30 → 300
+    end
+```
+
+> **为什么 IV crush 5 min 才反应已亏 50%**: AAPL earnings 公布 1 min 内, IV 可能从 80% 掉到 30%, 持有的 LONG_STRADDLE 即使股价猜对方向也亏 50%+。**事件熔断窗口 = 期权买方在事件冲击时唯一的实时反应能力**。详见 [架构通俗讲解 §6](architecture-walkthrough.md#h-num6-5-min-review-循环-agent2_review_tick-handler)。
 
 输出 = **本次 summary** (≤600 字, 含历史决策关键点 + 当前决策原因 + 用数据说话) + 三选一:
 
@@ -400,7 +508,14 @@ LLM 输入 = **10 维 Bundle** (此时维度 5 持仓盈亏已有值, 维度 10 
 | **AccountSnapshotClient** | 40 | 账户余额 / 持仓 / 订单状态, **cache TTL 5 秒共享** | Pull |
 | (临时 ad-hoc 脚本) | 90+ | cancel_all / 调试 | 短连 |
 
-**铁律**: 业务代码**禁止**直接调 `ibkr.reqMktData / reqPositions / placeOrder` 等 IBKR API。所有 IBKR 操作必走 4 个抽象之一。
+**典型使用场景** (具体细节 → [架构通俗讲解 §3](architecture-walkthrough.md#h-num3-4-个基础设施抽象-poolclient)):
+
+- **MarketDataPool 例**: opp #5 (AAPL 看涨) 和 opp #6 (AAPL 看跌) 都要订阅 AAPL spot 价 → Pool 内部 `ref_count[AAPL] = 2`, 但 IBKR 只发一次 `reqMktData(AAPL)`, 两个 callback 共享同一 stream。opp #5 平仓 → ref_count → 1, 仍订阅; opp #6 也平仓 → ref_count → 0 → 真 cancelMktData。
+- **QueryClient 例**: 时间工人盘前 30 min 触发 `SYSTEM_WAKE_UP` 时, 调 `req_historical_bars(AAPL, '1d', 19)` 拉 MA20 计算用; Agent 1 解析时调 `req_contract_details(AAPL)` 验证 symbol 存在。**一问一答, 不持续推**。
+- **OrderClient 例**: Agent 2 输出 `LONG_CALL 100 手` → handler 调 `place_split_order(...)` → OrderClient 内部拆 10×10 batch + LMT mid 定价 + 间隔 8s; 期间 IBKR 推 `orderStatus` 多次 (SUBMITTED → PARTIAL_FILLED → FILLED), Order Client 累计塞 ENTRY_FILLED 任务到队列。**所有下单走它独占, 防全局订单状态混乱**。
+- **AccountSnapshotClient 例**: Dashboard 每秒刷一次持仓 + Agent 2 review 每 5 min 拉持仓 + Agent 1 校验仓位金额 — **3 个消费者 5 秒内共享 1 次 IBKR 调用** (cache TTL 5s)。下单成交后 handler 调 `invalidate_cache()` 强制下次重拉, 防 stale。
+
+**铁律**: 业务代码**禁止**直接调 `ibkr.reqMktData / reqPositions / placeOrder` 等 IBKR API。所有 IBKR 操作必走 4 个抽象之一。**理由**: 引用计数去重 + cache TTL + 重连屏蔽 + 限流配额 全在 Pool 层, 散落调 = 把 forward compat hook 全踩坏。
 
 ---
 
@@ -418,6 +533,70 @@ LLM 输入 = **10 维 Bundle** (此时维度 5 持仓盈亏已有值, 维度 10 
 | `EXPIRE_OPPORTUNITY(opp_id)` | APScheduler (`effective_until` 到点) | 业务逻辑 → 标 FAILED |
 
 **任务队列必持久化** (`workflow_tasks` 表) — 崩溃恢复扫 PENDING/RUNNING > 60s 重做; handler 必 idempotent。
+
+### 完整事件流转例: AAPL 突破 280 买 100 手 call
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant T as ⏰ APScheduler
+    participant MD as 📡 MarketDataPool
+    participant Q as 📋 任务队列
+    participant H as handler
+    participant L as Agent 2 LLM
+    participant OC as 💰 OrderClient
+
+    Note over T: 09:00 ET 盘前 30 min
+    T->>Q: SYSTEM_WAKE_UP
+    Q->>H: 取任务
+    H->>MD: connect + subscribe(AAPL, opp_5)
+    H->>OC: connect (client_id 30)
+
+    Note over MD: 09:30 ET 盘开, AAPL tick 流入
+    MD->>MD: tick callback 算条件
+    Note over MD: 09:45 ET AAPL=$280.10 ≥ 280, 触发!
+    MD->>Q: CONDITION_MET(opp_5)
+    Q->>H: 取任务
+    H->>L: 拉 10 维 bundle + 喂 LLM (~10s)
+    L-->>H: LONG_CALL 100 手
+    Note over H: 风险门验证通过
+    H->>Q: EXECUTE_DECISION(LONG_CALL 100)
+
+    Q->>OC: 取任务 (handler 调 place_split_order)
+    OC->>OC: 拆 10 批 × 10 手, LMT mid+0.2*(ask-mid)
+    Note over OC: IBKR 异步推 orderStatus 多次
+    OC->>Q: ENTRY_FILLED(opp_5, order_42, 100 手 @ $5.20)
+
+    Q->>H: 取任务
+    Note over H: 写 positions 表 + 注册 active_reviews
+    H->>T: 注册 5 min review (next_due = 09:50 ET)
+
+    Note over T: 入场后 5 min 周期
+    loop 每 5 min review
+        T->>Q: AGENT2_REVIEW_TICK(opp_5)
+        Q->>H: handler
+        H->>L: 喂 bundle (含持仓 P&L)
+        L-->>H: HOLD / PARTIAL_CLOSE / FULL_CLOSE
+    end
+
+    Note over L: 11:30 ET LLM 决策 FULL_CLOSE
+    L-->>H: FULL_CLOSE 100 手
+    H->>Q: EXECUTE_DECISION(EXIT 100)
+    Q->>OC: handler 平仓
+    OC->>Q: EXIT_FILLED(opp_5, order_99)
+
+    Q->>H: handler
+    Note over H: positions qty → 0, status COMPLETED
+    H->>MD: unsubscribe(AAPL, opp_5)
+    Note over MD: ref_count[AAPL]--, 若=0 真 cancelMktData
+    H->>T: 从 active_reviews DELETE opp_5
+
+    Note over T: 16:00 ET 盘后
+    T->>Q: SYSTEM_SLEEP
+    Q->>H: handler 标全局 sleep
+```
+
+> 完整文字版步骤 (含 4 Pool/Client 具体调用 + DB 表读写) → [架构通俗讲解 §4 Step 0-9](architecture-walkthrough.md#h-num4-完整场景--aapl-突破-280-买-100-手-call)。
 
 ---
 
