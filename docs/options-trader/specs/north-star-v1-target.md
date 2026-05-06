@@ -73,18 +73,6 @@ graph TB
     QC -.->|TCP socket 长连| IBGW
     OC -.->|TCP socket 长连| IBGW
     AS -.->|TCP socket 长连| IBGW
-
-    classDef sched fill:#fff3e0,stroke:#e65100,color:#000
-    classDef queue fill:#e8eaf6,stroke:#1a237e,color:#000
-    classDef handler fill:#e8f5e9,stroke:#1b5e20,color:#000
-    classDef pool fill:#e1f5fe,stroke:#01579b,color:#000
-    classDef ext fill:#fce4ec,stroke:#880e4f,color:#000
-
-    class AP sched
-    class Q queue
-    class H1,H2,H3,H4 handler
-    class MD,QC,OC,AS pool
-    class IBGW ext
 ```
 
 > **完整一天典型流程示例** (AAPL 突破 280 买 100 手 call → 监控 → 入场 → 5 min review × N → 部分平仓 → 全平 → 取消订阅): 见 [⭐ 架构通俗讲解 §4 Step 0-9](architecture-walkthrough.md#h-num4-完整场景--aapl-突破-280-买-100-手-call) — 每一步在上图哪个组件发生的, 那里都标了。
@@ -132,26 +120,27 @@ graph TB
 ```mermaid
 timeline
     title 一日工作时段 (NYSE regular session, ET 时区)
-    08:00 ET (盘前 90 min) : APScheduler 进入待命
-                            : (盘前到点前不主动调 IBKR)
-    09:00 ET (盘前 30 min) : SYSTEM_WAKE_UP
-                            : 4 Pool 全部 connect
-                            : ref_count > 0 symbol 全部 resubscribe
-                            : QueryClient 拉每日 MA20 等历史 bar
-    09:30 ET (盘开)         : MarketDataPool 收 tick 流
-                            : 条件工人 callback 自动算条件
-                            : 满足条件 → CONDITION_MET → Agent 2 入场
-    盘中持续                 : 每 5 min review 持仓 (正常时段)
-                            : 事件 ±15 min 窗口 → 连续 loop (15-30s/轮)
-                            : newsTicker 加塞紧急 review
-    16:00 ET (盘后)         : SYSTEM_SLEEP
-                            : 业务停 (active_reviews 表保留)
-                            : 4 socket 等 IBGW 自动断
-    05:30 ET 次日           : IB Gateway auto-restart
-                            : oatworker daily 2FA 行为待实测
-    周日 ET                  : IBKR 强制维护窗口
-                            : 全部断, 必须手动 2FA
-    周一 09:00 ET           : SYSTEM_WAKE_UP 循环开始
+    section 盘前
+        08H00 ET 待命 : APScheduler 进入待命 (盘前到点前不主动调 IBKR)
+        09H00 ET 唤醒 : SYSTEM_WAKE_UP — 4 Pool 全部 connect
+                     : ref_count GT 0 symbol 全部 resubscribe
+                     : QueryClient 拉每日 MA20 等历史 bar
+    section 盘中
+        09H30 ET 盘开 : MarketDataPool 收 tick 流
+                     : 条件工人 callback 自动算条件
+                     : 满足条件触发 CONDITION_MET 走 Agent 2 入场
+        盘中持续      : 每 5 min review 持仓 (正常时段)
+                     : 事件 ±15 min 窗口连续 loop (15-30s/轮)
+                     : newsTicker 加塞紧急 review
+    section 盘后
+        16H00 ET 睡眠 : SYSTEM_SLEEP — 业务停, active_reviews 表保留
+                     : 4 socket 等 IBGW 自动断
+    section 夜间
+        05H30 ET 重启 : IB Gateway auto-restart (oatworker daily 2FA 待实测)
+    section 周日
+        IBKR 维护窗口 : 全部断, 必须手动 2FA
+    section 周一
+        09H00 ET 重启 : SYSTEM_WAKE_UP 循环开始
 ```
 
 ---
