@@ -2,7 +2,9 @@
 
 > **决策门禁**: 任何 spec / 功能规划 / "是否在 scope" 决策前先读此文档。任何字段、流程、维度变更回到此文档同步。
 >
-> 时间锚: 2026-05-06 (M3 UAT live 起)
+> 时间锚: 2026-05-06 (M3 UAT live 起, **2026-05-06 范式级架构梳理**)
+>
+> **架构怎么真实运转 (任务队列 / 4 Pool/Client / DB 5 类表 / 完整场景)** → ⭐ [架构通俗讲解 — 一个场景跑通整个系统](architecture-walkthrough.md)
 >
 > 数据样本: 来自 2026-05-06 真 <span class="term-service">IBKR</span> paper 账户实测 (AAPL, 美股盘中)。
 
@@ -18,45 +20,79 @@
 
 ---
 
-## <span class="h-num">2.</span> 系统构成
+## <span class="h-num">2.</span> 系统构成 (2026-05-06 范式升级)
 
-由 <span class="term-agent">Agent 1</span> (LLM 解析) + <span class="term-agent">Agent 2</span> (LLM 决策) + **3 个工人** (盘前 30 min 上线 → 盘后睡眠) 构成。
+> 完整架构细节 → [架构通俗讲解](architecture-walkthrough.md)。本节只列高层骨架。
+
+**系统真实只有 3 类东西** (取代旧"3 工人 actor" 视角):
+
+1. **APScheduler** + pandas_market_calendars + ZoneInfo("America/New_York") — 时间排程, 唯一会主动产生任务的
+2. **8 个 handler 函数** — 取任务 → 处理 → 可能塞新任务 (见 §11 event_type 表)
+3. **4 个基础设施抽象 (Pool/Client)** — 屏蔽 <span class="term-service">IBKR</span> 细节, 业务代码**禁止**直接调 IBKR API (见 §12)
+
+**"工人" 是 handler 逻辑分组, 不是独立 actor 进程**:
+
+| "工人" 别名 | 实际是什么 |
+|---|---|
+| <span class="term-worker">时间工人</span> | APScheduler 排程逻辑 |
+| <span class="term-worker">条件工人</span> | MarketDataPool 的 tick callback 里的条件计算逻辑 |
+| <span class="term-worker">信息工人</span> | `CONDITION_MET` / `AGENT2_REVIEW_TICK` handler 里拉 bundle + 喂 LLM 的代码 |
 
 ```
               ┌─────────  IB Gateway  ─────────┐
               │ (账户资金 / 时间信号 / 数据 / 下单) │
-              └──┬───┬───┬───┬───┬──────────┘
-                 │   │   │   │   │
-            Agent 1  时间 条件 信息 Agent 2
-           (账户资金) 工人 工人 工人 (下单)
-                 │    │    │    │     │
-                 └─创建机会单 → 工人协作 → Agent 2 → IBKR 下单
+              └─────────────┬───────────────────┘
+                            │ 长连接 (4 socket, client_id 10/20/30/40)
+              ┌─────────────┴────────────────────────────────┐
+              │  4 Pool/Client (基础设施)                     │
+              │  MarketData / Query / Order / AccountSnapshot │
+              └─────────────┬────────────────────────────────┘
+                            │
+              ┌─────────────┴────────────────┐
+              │  8 handler (任务消费者)       │
+              │  ↑↓ 任务队列 workflow_tasks 表 │
+              └─────────────┬────────────────┘
+                            │
+              ┌─────────────┴────────────────┐
+              │  APScheduler (任务生产者)     │
+              └──────────────────────────────┘
 ```
 
-**所有外部数据 / 操作都过 <span class="term-service">IB Gateway</span>** — 不只 <span class="term-agent">Agent 2</span> 下单。
+**所有外部数据 / 操作都过 <span class="term-service">IB Gateway</span>**, 必走 4 个 Pool/Client 之一:
 
-| 组件 | 用 <span class="term-service">IB Gateway</span> 做什么 |
+| 调用者 | 走哪个 Pool/Client |
 |---|---|
-| <span class="term-agent">Agent 1</span> | 仓位 ↔ 金额转换需查账户资金 |
-| <span class="term-worker">时间工人</span> | 上线/下线时间信号 + 当前市场时间 |
-| <span class="term-worker">条件工人</span> | 订阅 (流式) / query (一次性) 市场数据 |
-| <span class="term-worker">信息工人</span> | 拉 10 维 bundle 大部分来自 <span class="term-service">IBKR</span> |
-| <span class="term-agent">Agent 2</span> | 下单 |
+| <span class="term-agent">Agent 1</span> 仓位↔金额转换 | AccountSnapshotClient |
+| Dashboard 实时显示 | AccountSnapshotClient (cache TTL 5s 共享) |
+| 条件工人 (tick callback 算条件) | MarketDataPool (push 模式) |
+| 信息工人 (拉 10 维 bundle) | MarketDataPool + QueryClient + AccountSnapshotClient |
+| <span class="term-agent">Agent 2</span> 下单 / 平仓 / 撤单 | OrderClient |
 
 ---
 
-## <span class="h-num">3.</span> 工人工作时段
+## <span class="h-num">3.</span> 调度时段 + 时间锚
 
-3 个工人不是永远在线, 工作时段 = 美股 (ASX 测试时是 ASX) 开盘前 30 min 至收盘, 盘后睡眠。
+系统不是永远在线, 工作时段 = 美股 (ASX 测试时是 ASX) **开盘前 30 min 至收盘**, 盘后睡眠。
 
-**每天上线第一件事** (<span class="term-worker">时间工人</span>主导):
+**时间锚 (固定值)**:
+- **09:00 ET** (regular session 开盘前 30 min) — APScheduler 触发 `SYSTEM_WAKE_UP` 任务
+- **16:00 ET** (regular session 收盘) — APScheduler 触发 `SYSTEM_SLEEP` 任务
 
-1. 重连 <span class="term-service">IB Gateway</span> (前一日所有订阅已失效, <span class="term-service">IBKR</span> 标准行为)
-2. 检查所有活跃<span class="term-state">机会单</span>的时间窗口, 已过截止日期的转 <span class="term-state">失败单</span>
+**调度机制锁定** (禁用裸 cron / systemd timer, 防 DST/节假日/早收市必漏):
+- **APScheduler** (Python 应用内排程库)
+- **pandas_market_calendars** (NYSE 准确日历, 含节假日 + 早收市 e.g. 圣诞前一天 13:00 ET)
+- **ZoneInfo("America/New_York")** (Python 标准库时区, 自动处理 DST 切换)
+
+**`SYSTEM_WAKE_UP` handler 干什么**:
+
+1. 4 个 Pool/Client 全部 connect (建 long-lived TCP 连接到 IB Gateway, client_id 10/20/30/40)
+2. 检查所有活跃<span class="term-state">机会单</span>的时间窗口, 已过截止日期 → `EXPIRE_OPPORTUNITY` 任务 → 转 <span class="term-state">失败单</span>
 3. **重建数据获取** — 分两类:
-    - **持续订阅** (流式, 整天活跃): 活跃<span class="term-state">机会单</span>涉及的标的 Level 1 quote / <span class="term-state">持仓单</span>的合约 quote + Greeks / 宏观 VIXY + SPY
-    - **一次性 query 但每天重拉** (历史数据不变但需 fresh, 因为前一日 close 进了新一日的窗口): 各<span class="term-state">机会单</span>的条件计算所需的历史 bar (e.g. MA20 需要前 19 天日 bar, 一次拉到再加今天 LAST 算) / 期权链 metadata (新合约上市/老到期会变) / 标的近期 N 根 bar
-4. 唤醒 <span class="term-worker">条件工人</span> / <span class="term-worker">信息工人</span>
+    - **持续订阅** (MarketDataPool 遍历 ref_count > 0 的 symbol 全部 reqMktData resubscribe): 活跃<span class="term-state">机会单</span>涉及的标的 Level 1 quote / <span class="term-state">持仓单</span>的合约 quote + Greeks / 宏观 VIXY + SPY
+    - **一次性 query 但每天重拉** (QueryClient): 历史 bar (MA20 需要前 19 天日 bar) / 期权链 metadata / 标的近期 N 根 bar
+4. (handler 们自动开始消费任务, **不需要单独"唤醒条件/信息工人"** — 它们是 callback / handler 不是独立进程)
+
+**Pool 自治重连**: 网络断 / IB Gateway 异常重启 / 周日维护后恢复 — Pool 内部 retry (指数退避 30s→1min→2min→5min→...) + 重连成功后自动遍历 ref_count > 0 全部 resubscribe + 通知业务层 "POOL_READY"。**业务层完全不感知连接事件**。
 
 ---
 
@@ -115,9 +151,19 @@ LLM 输入 = **10 维 Bundle** (维度 1-9 都有值; 维度 10 "上次 summary"
         - 重跑通过 → 下单 → <span class="term-state">持仓单</span>
         - **重跑仍违 → 转 <span class="term-state">失败单</span>**, 失败原因 = "Agent-2 风控不通过"
 
-### 5.2 仓位管理 (<span class="term-state">持仓单</span>, 每 5 min 触发)
+### 5.2 仓位管理 (<span class="term-state">持仓单</span>, 5 min/次 + 事件窗口连续 loop)
 
 LLM 输入 = **10 维 Bundle** (此时维度 5 持仓盈亏已有值, 维度 10 上次 summary 也填了 — rolling summary 模式累积持仓上下文)
+
+**Review 节奏分两档**:
+
+| 时段 | review 间隔 | 实现 |
+|---|---|---|
+| **正常时段** | 5 min/次 (固定) | `active_reviews` 表 review_interval_sec = 300; APScheduler 每 ~10s 扫表 due 的 opp 塞 `AGENT2_REVIEW_TICK` 任务 |
+| **事件熔断窗口** (earnings / CPI / FOMC ±15 min) | **连续 loop** (前次完成→立即下一次, 间隔由 LLM 决策延迟决定 ~15-30s/轮) | `active_reviews` 表 review_interval_sec = 30; 单次 review 全管道 timeout = 25s 超时跳过该轮; 窗口持续上限 60 min |
+| **事件公布瞬间** | 立即加塞 | newsTicker callback 收到 earnings news → 立即塞一次 `AGENT2_REVIEW_TICK(opp_id, urgent=True)` 跳过等待 |
+
+**为什么连续 loop 不写死间隔**: LLM 决策延迟 ~15-30s, 写死 30s 间隔 = 上一轮没出结果下一轮又开始, 重叠堆栈反而不稳。连续 loop = "前一次完成立即下一次", 节奏由实测延迟决定。
 
 输出 = **本次 summary** (≤600 字, 含历史决策关键点 + 当前决策原因 + 用数据说话) + 三选一:
 
@@ -125,7 +171,7 @@ LLM 输入 = **10 维 Bundle** (此时维度 5 持仓盈亏已有值, 维度 10 
 - **加仓** (具体多少手 + 用什么策略买)
 - **平仓** (平部分多少手 / 一次全平)
 
-全部平仓完成 → <span class="term-state">持仓单</span>转 <span class="term-state">已完成单</span>。
+全部平仓完成 → <span class="term-state">持仓单</span>转 <span class="term-state">已完成单</span>。EXIT_FILLED handler 自动 unsubscribe 所有跟该 opp 相关的 MarketDataPool 订阅 (引用计数自动去重)。
 
 ### 5.3 客户不要止损 — LLM 自主决定平仓时机
 
@@ -323,28 +369,104 @@ LLM 输入 = **10 维 Bundle** (此时维度 5 持仓盈亏已有值, 维度 10 
 
 ---
 
-## <span class="h-num">9.</span> 方向策略白名单 (无裸卖空)
+## <span class="h-num">9.</span> 方向策略白名单 (无裸卖空, 共 12 种, 2026-05-06 加 CALENDAR/DIAGONAL)
 
 | 方向 | 允许策略 | 备注 |
 |---|---|---|
 | BULLISH (看涨) | LONG_CALL / BULL_CALL_SPREAD / BULL_PUT_SPREAD (有保护) | 共 3 种 |
 | BEARISH (看跌) | LONG_PUT / BEAR_PUT_SPREAD / BEAR_CALL_SPREAD (有保护) | 共 3 种 |
-| VOLATILITY (看波动) | LONG_STRADDLE / LONG_STRANGLE / IRON_CONDOR / IRON_BUTTERFLY | 共 4 种, 用户指定看波动 → LLM 看 IV / 客户偏好自决"买波动" (LONG_*) 或"卖波动有保护" (IRON_*) |
-| null (用户未指定) | 上面 10 种全可 | LLM 完全自由发挥 |
+| VOLATILITY (看波动 / 时间价值) | LONG_STRADDLE / LONG_STRANGLE / IRON_CONDOR / IRON_BUTTERFLY / **CALENDAR_SPREAD** / **DIAGONAL_SPREAD** | 共 6 种; LONG_* 买波动, IRON_* 卖波动有保护, CALENDAR/DIAGONAL 赚时间价值 (中文客户讲"earnings play 不押方向"用) |
+| null (用户未指定) | 上面 12 种全可 | LLM 完全自由发挥 |
 
 > **裸卖空** (SHORT_CALL / SHORT_PUT / SHORT_STRADDLE / SHORT_STRANGLE 等亏损无底线策略) **永久禁止**。LLM 输出 schema 物理上无法生成 (Structured Outputs enum 限制), 不依赖 LLM 自律。
 
-> 总计 **10 种**白名单策略。
+> CALENDAR_SPREAD = 同 strike 不同 expiry, 卖近月买远月; DIAGONAL_SPREAD = 不同 strike + 不同 expiry。**都是净 debit 有限亏, 非裸卖空**。
+
+> **4 腿策略流动性约束** (IRON_CONDOR / IRON_BUTTERFLY): 100+ 手量级 BAG combo 撮合需全腿同时 fill, 大单经常部分成交→暴露裸腿。**仅限 SPY / QQQ / IWM 等 top 10 高流动性标的 + 单腿 OI ≥ 500 contracts**; 其他标的 Agent 2 自动降级 SPREAD (2 腿)。
+
+> 总计 **12 种**白名单策略。
 
 ---
 
-## <span class="h-num">10.</span> 维护规则
+## <span class="h-num">10.</span> 4 个基础设施抽象 (Pool/Client) + client_id 段位
+
+完整工作机制 → [架构通俗讲解 §3 + §4](architecture-walkthrough.md)。本节列高层骨架。
+
+| Pool/Client | client_id 段位 | 职责 | 模式 |
+|---|---|---|---|
+| **MarketDataPool** | 10-19 | 持续订阅市场数据, **引用计数去重** + cache 最新值 | Push (tick callback) + Pull (get_latest cache) |
+| **QueryClient** | 20 | 一次性 query (历史 bar / 期权链 / contract details) | Pull |
+| **OrderClient** | 30 | 下单 / 撤单 / 修改, **独占防订单状态混乱** | Push (orderStatus stream) + Pull (placeOrder) |
+| **AccountSnapshotClient** | 40 | 账户余额 / 持仓 / 订单状态, **cache TTL 5 秒共享** | Pull |
+| (临时 ad-hoc 脚本) | 90+ | cancel_all / 调试 | 短连 |
+
+**铁律**: 业务代码**禁止**直接调 `ibkr.reqMktData / reqPositions / placeOrder` 等 IBKR API。所有 IBKR 操作必走 4 个抽象之一。
+
+---
+
+## <span class="h-num">11.</span> 8 种 event_type (任务队列里所有任务类型)
+
+| event_type | 谁触发 | 谁消费 |
+|---|---|---|
+| `SYSTEM_WAKE_UP` | APScheduler (09:00 ET 盘前 30 min) | 全局 (Pool 重连 + 重订阅) |
+| `SYSTEM_SLEEP` | APScheduler (16:00 ET 盘后) | 全局 (停 active_reviews) |
+| `CONDITION_MET(opp_id)` | MarketDataPool tick callback | 业务逻辑 → Agent 2 入场决策 |
+| `AGENT2_REVIEW_TICK(opp_id)` | APScheduler (5 min 周期 / 事件窗口连续 / newsTicker 加塞) | 信息工人逻辑 → Agent 2 LLM |
+| `EXECUTE_DECISION(decision)` | CONDITION_MET / AGENT2_REVIEW_TICK handler (Agent 2 输出+风险门通过后) | OrderClient |
+| `ENTRY_FILLED(opp_id, order_id)` | OrderClient orderStatus callback (累计 FILLED) | 业务逻辑 → 写持仓 + 启动 review |
+| `EXIT_FILLED(opp_id, order_id)` | 同上 | 业务逻辑 → 减持仓 / 全平归档 + 取消订阅 |
+| `EXPIRE_OPPORTUNITY(opp_id)` | APScheduler (`effective_until` 到点) | 业务逻辑 → 标 FAILED |
+
+**任务队列必持久化** (`workflow_tasks` 表) — 崩溃恢复扫 PENDING/RUNNING > 60s 重做; handler 必 idempotent。
+
+---
+
+## <span class="h-num">12.</span> 3 IBKR username 架构
+
+| username | 账户 | 用途 | 部署在 |
+|---|---|---|---|
+| **USER_A** | paper | 开发 / 测试 / CI | cloud-dev + UAT |
+| **USER_B** (= oatworker) | live | **程序独占 IB Gateway**, 跑 4 个 Pool/Client + 8 handler + 下单 | PROD |
+| **USER_C** | live | **客户用 TWS / 手机 app 自己监控**, 不下单 | 客户本地 |
+
+**约束**:
+- USER_B 和 USER_C 共享同一个 live 账户的资金 / 持仓 (IBKR 多 username 机制), 同时连不互踢
+- **paper+live 永远是切 username (A↔B), 不是单 username 内切模式** — 同 username 同时连 paper+live 必互踢
+- USER_B (oatworker) 在 IB Gateway daily 05:30-06:00 ET auto-restart 是否需要 2FA **待实测** (周日维护窗口必需 2FA 已知)
+
+---
+
+## <span class="h-num">13.</span> 并发上限 + 数据成本
+
+| 指标 | 上限 | 备注 |
+|---|---|---|
+| **持仓数量** | **3-5 个** | 吃资金 (~$2M RMB 账户保 30% buffer 防 margin call) |
+| **机会单总数** | **20-30 个** | 含监控中未触发, 不吃资金, 只吃 IBKR 100 stream 配额, MarketDataPool 引用计数自动去重 |
+| **IBKR client_id** | 32 (上限) | 我们仅用 5 个长连, 完全用不完 |
+
+**数据订阅成本** = 走 IBKR packet 包 (客户已签 ~$35/月覆盖 OPRA + Level 1 + Reuters Basic), **达交易量豁免**。**北极星不写绝对数字**, 实际成本以客户当前订阅为准。不另接第三方除非 IBKR 不覆盖。
+
+---
+
+## <span class="h-num">14.</span> 分批下单 + Adaptive 算法 (本期 ship)
+
+大单滑点是先决条件, 不是后期优化:
+
+- 单仓位 ≥ 50 手必拆 (< 50 手整单)
+- 单腿策略 (LONG_CALL / LONG_PUT) → IBKR Adaptive Algorithm (`order.algoStrategy="Adaptive"`)
+- 多腿策略 (BULL_CALL_SPREAD / IRON_CONDOR 等 BAG combo) → 自实现拆腿挂单 + 4 档 spread_ratio (patient 0.2 / normal 0.3 / urgent 0.7 / market) 调价循环 (IBKR Adaptive **不支持** combo)
+- 默认 batch_size = 10 / interval_sec = 8 / 起步 patient
+
+---
+
+## <span class="h-num">15.</span> 维护规则
 
 - 任何 invariant / 字段 / 流程 / 维度变更 → 同步本文档
 - 数据样本季度 refresh 一次 (跑 phase1 probe 脚本即可)
 - 关联文档:
+    - **⭐ [架构通俗讲解](architecture-walkthrough.md)** — 任务队列 / Pool/Client / DB 5 类表 / 完整场景 (新读者必看)
     - 项目内 brainstorming 归档: `docs/superpowers/discussions/2026-05-05-north-star-section1-brainstorming.md`
-    - 北极星 §2-§7 (远景 / 5 问 / 中间路径 / forward compat / 历史决策 / 反偏离): 待 §1 锁定后逐节 review
+    - 北极星 §2-§7 (远景 / 5 问 / 中间路径 / forward compat / 历史决策 / 反偏离): memory `project_vision_and_north_star.md`
 
 ---
 
