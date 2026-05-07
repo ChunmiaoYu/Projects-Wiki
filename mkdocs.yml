@@ -78,7 +78,7 @@ markdown_extensions:
 nav:
   - 首页: index.md
   - 期权 AI 交易助手:
-    - 实时状态:
+    - 客户看板 - 实时展示:
       - options-trader/dashboard/index.md
       - 看板历史:
         - options-trader/dashboard-snapshots/index.md
