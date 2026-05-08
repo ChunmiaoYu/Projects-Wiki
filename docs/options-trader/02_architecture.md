@@ -4,399 +4,430 @@
 
 The following files were used as context for generating this wiki page:
 
-- [app.py:1-57](https://github.com/ChunmiaoYu/options_ai_trader/blob/f5f3ac84e9c5d963fc1450f12306ea264183dfad/src/options_event_trader/api/app.py#L1-L57)
-- [loop.py:1-66](https://github.com/ChunmiaoYu/options_ai_trader/blob/f5f3ac84e9c5d963fc1450f12306ea264183dfad/src/options_event_trader/worker/loop.py#L1-L66)
-- [settings.py:1-60](https://github.com/ChunmiaoYu/options_ai_trader/blob/f5f3ac84e9c5d963fc1450f12306ea264183dfad/src/options_event_trader/settings.py#L1-L60)
-- [broker_adapter.py:1-328](https://github.com/ChunmiaoYu/options_ai_trader/blob/f5f3ac84e9c5d963fc1450f12306ea264183dfad/src/options_event_trader/services/broker_adapter.py#L1-L328)
-- [order_placer.py:1-341](https://github.com/ChunmiaoYu/options_ai_trader/blob/f5f3ac84e9c5d963fc1450f12306ea264183dfad/src/options_event_trader/services/order_placer.py#L1-L341)
-- [market_data_collector.py:1-470](https://github.com/ChunmiaoYu/options_ai_trader/blob/f5f3ac84e9c5d963fc1450f12306ea264183dfad/src/options_event_trader/services/market_data_collector.py#L1-L470)
-- [strategy_agent.py:1-55](https://github.com/ChunmiaoYu/options_ai_trader/blob/f5f3ac84e9c5d963fc1450f12306ea264183dfad/src/options_event_trader/agents/strategy_agent.py#L1-L55)
-- [strategy_resolver.py:1-234](https://github.com/ChunmiaoYu/options_ai_trader/blob/f5f3ac84e9c5d963fc1450f12306ea264183dfad/src/options_event_trader/services/strategy_resolver.py#L1-L234)
-- [risk_gate.py:1-48](https://github.com/ChunmiaoYu/options_ai_trader/blob/f5f3ac84e9c5d963fc1450f12306ea264183dfad/src/options_event_trader/services/risk_gate.py#L1-L48)
-- [intake_service.py:1-97](https://github.com/ChunmiaoYu/options_ai_trader/blob/f5f3ac84e9c5d963fc1450f12306ea264183dfad/src/options_event_trader/services/intake_service.py#L1-L97)
-- [opportunity_service.py:1-200](https://github.com/ChunmiaoYu/options_ai_trader/blob/f5f3ac84e9c5d963fc1450f12306ea264183dfad/src/options_event_trader/services/opportunity_service.py#L1-L200)
-- [session.py:1-43](https://github.com/ChunmiaoYu/options_ai_trader/blob/f5f3ac84e9c5d963fc1450f12306ea264183dfad/src/options_event_trader/db/session.py#L1-L43)
-- [jobs.py:1-128](https://github.com/ChunmiaoYu/options_ai_trader/blob/f5f3ac84e9c5d963fc1450f12306ea264183dfad/src/options_event_trader/worker/jobs.py#L1-L128)
-- [scheduler_service.py:1-116](https://github.com/ChunmiaoYu/options_ai_trader/blob/f5f3ac84e9c5d963fc1450f12306ea264183dfad/src/options_event_trader/services/scheduler_service.py#L1-L116)
-- [pipeline_db.py:1-79](https://github.com/ChunmiaoYu/options_ai_trader/blob/f5f3ac84e9c5d963fc1450f12306ea264183dfad/src/options_event_trader/services/pipeline_db.py#L1-L79)
+- [app.py:1-82](https://github.com/ChunmiaoYu/options_ai_trader/blob/6b3d159/src/options_event_trader/api/app.py#L1-L82)
+- [loop.py:1-364](https://github.com/ChunmiaoYu/options_ai_trader/blob/6b3d159/src/options_event_trader/worker/loop.py#L1-L364)
+- [models.py:1-623](https://github.com/ChunmiaoYu/options_ai_trader/blob/6b3d159/src/options_event_trader/db/models.py#L1-L623)
+- [strategy_agent.py:1-129](https://github.com/ChunmiaoYu/options_ai_trader/blob/6b3d159/src/options_event_trader/agents/strategy_agent.py#L1-L129)
+- [20260507_0024_add_active_reviews.py](https://github.com/ChunmiaoYu/options_ai_trader/blob/6b3d159/alembic/versions/20260507_0024_add_active_reviews.py)
+- [20260507_0025_add_market_data_subscriptions.py](https://github.com/ChunmiaoYu/options_ai_trader/blob/6b3d159/alembic/versions/20260507_0025_add_market_data_subscriptions.py)
+- [20260507_0026_add_pool_health_log.py](https://github.com/ChunmiaoYu/options_ai_trader/blob/6b3d159/alembic/versions/20260507_0026_add_pool_health_log.py)
+- [20260507_0027_add_event_calendar.py](https://github.com/ChunmiaoYu/options_ai_trader/blob/6b3d159/alembic/versions/20260507_0027_add_event_calendar.py)
+- [20260507_0028_add_strategy_whitelist_seed.py](https://github.com/ChunmiaoYu/options_ai_trader/blob/6b3d159/alembic/versions/20260507_0028_add_strategy_whitelist_seed.py)
+- [20260507_0029_brokerorder_algo_split_batch_and_workflow_check.py](https://github.com/ChunmiaoYu/options_ai_trader/blob/6b3d159/alembic/versions/20260507_0029_brokerorder_algo_split_batch_and_workflow_check.py)
+- [specs/architecture-walkthrough.md](specs/architecture-walkthrough.md)
 
 </details>
 
 # 系统架构
 
-> **Related Pages**: [[项目概述|01_overview.md]], [[Agent1：Intake 解析器|03_intake.md]]
+> **Related Pages**: [[项目概述|01_overview.md]], [[Agent1：Intake 解析器|03_intake.md]], [[数据库与持久化|06_database.md]]
+>
+> **配套深度阅读**: [⭐ 架构通俗讲解 — AAPL 突破 280 完整场景](specs/architecture-walkthrough.md) — 不懂软件架构的客户/业务方/不熟代码的工程师，从一个真实场景跑通整个系统。
 
 ---
 
 <!-- BEGIN:AUTOGEN options_02_architecture_overview -->
 ## 架构总览
 
-Options Event Trader 采用**三进程 + 单数据库**的架构模式。API Server 负责接收前端请求和管理交易意图的生命周期；Worker 进程在后台轮询执行策略生成和下单；前端是一个纯静态的单页应用，由 API Server 通过 StaticFiles 中间件直接托管。三个组件通过 PostgreSQL 数据库进行间接通信——API Server 写入 Opportunity 和 TriggerRule 记录，Worker 轮询这些记录来驱动后续的策略 Pipeline。
+Options Event Trader **不是** "三进程 actor" 系统。直觉上你可能以为系统里跑着「时间工人 / 条件工人 / 信息工人」三个独立的进程在并行做事——**不是**。
 
-### 三进程架构
+系统真实只有 **4 大组成部分**：
 
-| 进程 | 入口 | 职责 |
-|------|------|------|
-| **API Server** | `create_app()` 工厂函数 ([app.py:20-56](https://github.com/ChunmiaoYu/options_ai_trader/blob/f5f3ac84e9c5d963fc1450f12306ea264183dfad/src/options_event_trader/api/app.py#L20-L56)) | FastAPI 应用，注册 6 个 Router，托管前端静态文件 |
-| **Worker** | `run_worker_forever()` ([loop.py:44-65](https://github.com/ChunmiaoYu/options_ai_trader/blob/f5f3ac84e9c5d963fc1450f12306ea264183dfad/src/options_event_trader/worker/loop.py#L44-L65)) | 无限循环：调度器 → 分发器 → 策略 Pipeline → 持仓监控 |
-| **Frontend** | `frontend/index.html` | React 18 单页应用，通过 REST API 与后端交互 |
+| # | 组成部分 | 实际身份 |
+|---|---|---|
+| 1 | **APScheduler**（排程器） | 时间排程，**唯一**会主动产生任务的代码路径 |
+| 2 | **8 个 event_type handler 函数** | 取任务 → 处理 → 可能塞新任务进队列 |
+| 3 | **4 个 Pool/Client 抽象** | 屏蔽 IBKR API 细节；业务代码**禁止**直接调 IBKR |
+| 4 | **任务队列**（`workflow_tasks` 表） | 持久化挂单板，串起 1/2/3，崩溃恢复用 |
 
-### API Server 路由注册
-
-API Server 在 `create_app()` 中依次注册以下 6 个路由器 ([app.py:42-47](https://github.com/ChunmiaoYu/options_ai_trader/blob/f5f3ac84e9c5d963fc1450f12306ea264183dfad/src/options_event_trader/api/app.py#L42-L47)):
-
-| 路由器 | 职责 |
-|--------|------|
-| `health_router` | 健康检查 |
-| `intake_router` | Agent1 自然语言解析 |
-| `opportunities_router` | 交易意图的 CRUD 和生命周期管理 |
-| `executions_router` | 执行记录查询 |
-| `strategy_router` | 策略生成与查询 |
-| `monitoring_router` | 持仓监控配置 |
-
-前端静态文件在路由器注册之后挂载到根路径 `/`，确保 API 路由优先级高于前端文件 ([app.py:49-51](https://github.com/ChunmiaoYu/options_ai_trader/blob/f5f3ac84e9c5d963fc1450f12306ea264183dfad/src/options_event_trader/api/app.py#L49-L51))。
-
-### Worker 轮询循环
-
-Worker 进程启动时首先连接 IBKR 客户端（真实或 Mock），然后进入一个 `while True` 循环，每轮按固定顺序执行四个步骤 ([loop.py:52-62](https://github.com/ChunmiaoYu/options_ai_trader/blob/f5f3ac84e9c5d963fc1450f12306ea264183dfad/src/options_event_trader/worker/loop.py#L52-L62)):
-
-1. **调度器**（`run_scheduler_once`）：扫描到期的 TriggerRule，创建 ExecutionRun 和 WorkflowTask
-2. **分发器**（`run_dispatcher_once`）：认领 PENDING 状态的 WorkflowTask 并标记为 DONE
-3. **策略 Pipeline**（`run_strategy_pipeline`）：对 SUBMITTED 状态且无活跃 StrategyRun 的 Opportunity 执行 6 步流水线
-4. **持仓监控**（`monitor_open_positions_once`）：评估止盈/止损/保证金规则
-
-轮询间隔由 `settings.worker_poll_seconds` 控制，默认 15 秒 ([settings.py:38](https://github.com/ChunmiaoYu/options_ai_trader/blob/f5f3ac84e9c5d963fc1450f12306ea264183dfad/src/options_event_trader/settings.py#L38))。IBKR 断连时自动重试最多 3 次，重试间隔 5 秒 ([loop.py:18-19](https://github.com/ChunmiaoYu/options_ai_trader/blob/f5f3ac84e9c5d963fc1450f12306ea264183dfad/src/options_event_trader/worker/loop.py#L18-L19))。
+"时间工人 / 条件工人 / 信息工人" 这些词指的是 **handler 函数的逻辑分组**，不是独立进程。
 
 ```mermaid
-graph TD
-    subgraph Frontend
-        FE["前端 SPA"]
+graph TB
+    subgraph 业务入口
+        Frontend["前端 SPA<br/>暗色 Dashboard v2"]
+        API["FastAPI<br/>10 个 router"]
     end
 
-    subgraph APIServer
-        API["FastAPI 应用"]
-        R1["intake_router"]
-        R2["opportunities_router"]
-        R3["executions_router"]
-        R4["strategy_router"]
-        R5["monitoring_router"]
-        R6["health_router"]
+    subgraph 排程与队列
+        APS["APScheduler<br/>+ pandas_market_calendars<br/>+ ZoneInfo"]
+        WQ[("workflow_tasks<br/>任务队列")]
+        AR[("active_reviews<br/>5 min review 排程")]
     end
 
-    subgraph WorkerProcess
-        WL["Worker 轮询循环"]
-        SCH["调度器"]
-        DIS["分发器"]
-        PIP["策略 Pipeline"]
-        MON["持仓监控"]
+    subgraph 8 个 event_type handler
+        H1["SYSTEM_WAKE_UP"]
+        H2["SYSTEM_SLEEP"]
+        H3["CONDITION_MET"]
+        H4["AGENT2_REVIEW_TICK"]
+        H5["EXECUTE_DECISION"]
+        H6["ENTRY_FILLED"]
+        H7["EXIT_FILLED"]
+        H8["EXPIRE_OPPORTUNITY"]
     end
 
-    subgraph DataLayer
-        PG[("PostgreSQL")]
+    subgraph 4 个 Pool/Client 抽象
+        MDP["MarketDataPool<br/>client_id 10-19<br/>引用计数 + push/pull"]
+        QC["QueryClient<br/>client_id 20<br/>一次性 query"]
+        OC["OrderClient<br/>client_id 30<br/>下单/撤单独占"]
+        ASC["AccountSnapshotClient<br/>client_id 40<br/>cache TTL 5s"]
     end
 
-    subgraph ExternalServices
-        IBKR["IBKR TWS API"]
-        OAI["OpenAI API"]
+    subgraph LLM
+        A1["Agent 1<br/>DeepSeek V4-Flash"]
+        A2["Agent 2<br/>entry: DeepSeek<br/>review: Haiku 4.5"]
     end
 
-    FE -->|"REST API"| API
-    API --> R1
-    API --> R2
-    API --> R3
-    API --> R4
-    API --> R5
-    API --> R6
-    R1 -->|"读写"| PG
-    R2 -->|"读写"| PG
-    R3 -->|"读"| PG
-    R4 -->|"读写"| PG
+    subgraph 数据持久化
+        PG[("PostgreSQL<br/>24+ 表")]
+    end
 
-    WL --> SCH
-    WL --> DIS
-    WL --> PIP
-    WL --> MON
-    SCH -->|"读写"| PG
-    DIS -->|"读写"| PG
-    PIP -->|"读写"| PG
-    PIP -->|"市场数据 + 下单"| IBKR
-    PIP -->|"策略生成"| OAI
-    R1 -->|"Intake 解析"| OAI
+    subgraph 外部
+        IBKR["IBKR Gateway<br/>USER_A/B/C 切换"]
+    end
+
+    Frontend -->|REST| API
+    API -->|Agent 1 解析| A1
+    API -->|读写| PG
+
+    APS -->|盘前 09:00 ET 塞 SYSTEM_WAKE_UP| WQ
+    APS -->|盘后 16:00 ET 塞 SYSTEM_SLEEP| WQ
+    APS -->|每 ~10s 扫 active_reviews due| AR
+    AR -->|塞 AGENT2_REVIEW_TICK| WQ
+
+    H1 --> MDP
+    H1 --> QC
+    H1 --> OC
+    H1 --> ASC
+
+    MDP -.tick callback.-> H3
+    OC -.orderStatus callback.-> H6
+    OC -.orderStatus callback.-> H7
+
+    H3 -->|Agent 2 entry 决策| A2
+    H4 -->|Agent 2 review 决策| A2
+    H4 --> H5
+    H5 --> OC
+    H6 --> AR
+    H7 --> AR
+
+    MDP <-->|长连 socket| IBKR
+    QC <-->|长连 socket| IBKR
+    OC <-->|长连 socket| IBKR
+    ASC <-->|长连 socket| IBKR
+
+    H1 -->|读写| PG
+    H3 -->|读写| PG
+    H4 -->|读写| PG
+    H6 -->|读写| PG
+    H7 -->|读写| PG
 ```
 
-Sources: [app.py:20-56](https://github.com/ChunmiaoYu/options_ai_trader/blob/f5f3ac84e9c5d963fc1450f12306ea264183dfad/src/options_event_trader/api/app.py#L20-L56), [loop.py:44-65](https://github.com/ChunmiaoYu/options_ai_trader/blob/f5f3ac84e9c5d963fc1450f12306ea264183dfad/src/options_event_trader/worker/loop.py#L44-L65), [settings.py:9-41](https://github.com/ChunmiaoYu/options_ai_trader/blob/f5f3ac84e9c5d963fc1450f12306ea264183dfad/src/options_event_trader/settings.py#L9-L41)
+API Server 由 [`create_app()`](https://github.com/ChunmiaoYu/options_ai_trader/blob/6b3d159/src/options_event_trader/api/app.py#L41-L78) 工厂函数创建，注册 10 个 router（`health` / `intake` / `opportunities` / `executions` / `strategy` / `monitoring` / `account` / `dashboard` / `workers` / `system`），并通过 [`NoCacheStaticFiles`](https://github.com/ChunmiaoYu/options_ai_trader/blob/6b3d159/src/options_event_trader/api/app.py#L12-L25) 在根路径挂载前端静态资源（含 `Cache-Control: no-cache` 头，避免 babel-standalone 浏览器缓存导致 deploy 后看老 UI）。
+
+Worker 进程由 [`run_worker_forever()`](https://github.com/ChunmiaoYu/options_ai_trader/blob/6b3d159/src/options_event_trader/worker/loop.py#L132-L234) 驱动；当前实施 (2026-05-08) 仍是 **单进程 `while True` 主循环**，每 `worker_poll_seconds`（默认 15s）跑一轮：drain_exit_queue → time_stops → scheduler → dispatcher → strategy_pipeline → reconcile → Agent 2 review。**这是过渡形态**——Phase B alembic 0024-0029 已 ship 7 张表（`active_reviews` / `market_data_subscriptions` / `pool_health_log` / `event_calendar` / `strategy_whitelist_seed` 等），为 P0 主线 `F-2026-05-07-WORKER-HANDLER-IMPLEMENTATION` 真实施 8 个 event_type handler 提供 schema 支撑。
+
+Sources: [app.py:1-82](https://github.com/ChunmiaoYu/options_ai_trader/blob/6b3d159/src/options_event_trader/api/app.py#L1-L82), [loop.py:132-234](https://github.com/ChunmiaoYu/options_ai_trader/blob/6b3d159/src/options_event_trader/worker/loop.py#L132-L234), [architecture-walkthrough.md §2](specs/architecture-walkthrough.md)
 <!-- END:AUTOGEN options_02_architecture_overview -->
 
 ---
 
-<!-- BEGIN:AUTOGEN options_02_architecture_data-flow -->
-## 端到端数据流
+<!-- BEGIN:AUTOGEN options_02_architecture_pool_client -->
+## 4 个 Pool/Client 抽象
 
-系统的完整数据流覆盖从用户输入到订单执行的全生命周期。分为两个主要阶段：**Intake 阶段**（同步，在 API Server 内完成）和 **Strategy Pipeline 阶段**（异步，由 Worker 驱动）。
+业务代码**永远不直接调** IBKR API。所有 IBKR 操作必走以下 4 个抽象之一，每个抽象一个长连 TCP socket，不同 `client_id` 段位避免冲突：
 
-### 阶段一：Intake 解析与 Opportunity 创建
+| Pool/Client | client_id | 职责 | 模式 |
+|---|---|---|---|
+| **MarketDataPool** | 10-19 | 持续订阅市场数据（实时 tick / 期权报价 / IV）；引用计数去重；持仓阶段保留订阅 | Push（IBKR 推 tick → on_tick callback） + Pull（`get_latest()` 拉 cache） |
+| **QueryClient** | 20 | 一次性 query（历史 K 线 / 期权链 / contract details） | Pull（问一次答一次） |
+| **OrderClient** | 30 | 下单 / 撤单 / 修改；独占防订单状态混乱 | Push（IBKR 推 orderStatus / openOrder / execDetails） + Pull（业务调 placeOrder） |
+| **AccountSnapshotClient** | 40 | 账户余额 / 持仓 / 订单状态；cache TTL 5 秒 | Pull（按需拉，cache 去重） |
 
-用户在前端输入自然语言交易意图后，请求经过以下路径：
+`client_id` 段位 90+ 留临时 ad-hoc 脚本（probe / 一次性数据采集）使用，不进生产路径。
 
-1. **前端** POST 到 `/v1/intake/parse`，由 `IntakeService` 调用 Agent1（LangGraph 7 节点工作流）解析 ([intake_service.py:21-44](https://github.com/ChunmiaoYu/options_ai_trader/blob/f5f3ac84e9c5d963fc1450f12306ea264183dfad/src/options_event_trader/services/intake_service.py#L21-L44))
-2. **前端** 展示解析结果，用户确认后 POST 到 `/v1/opportunities`，调用 `save_draft()` 创建 DRAFT 状态的 Opportunity ([opportunity_service.py:72-94](https://github.com/ChunmiaoYu/options_ai_trader/blob/f5f3ac84e9c5d963fc1450f12306ea264183dfad/src/options_event_trader/services/opportunity_service.py#L72-L94))
-3. **前端** POST 到 `/v1/opportunities/{id}/submit`，调用 `submit_opportunity()` 将 DRAFT 转为 SUBMITTED，同时创建 TriggerRule ([opportunity_service.py:97-149](https://github.com/ChunmiaoYu/options_ai_trader/blob/f5f3ac84e9c5d963fc1450f12306ea264183dfad/src/options_event_trader/services/opportunity_service.py#L97-L149))
+### 为什么必须是长连接
 
-### 阶段二：策略 Pipeline（6 步流水线）
+不是因为"持续推流"——**IBKR API 协议本身要求长连**。EWrapper/EClient 是异步双向消息模型：
 
-Worker 轮询发现 SUBMITTED 的 Opportunity 后，执行 `execute_opportunity_pipeline()` 的 6 个步骤 ([broker_adapter.py:69-308](https://github.com/ChunmiaoYu/options_ai_trader/blob/f5f3ac84e9c5d963fc1450f12306ea264183dfad/src/options_event_trader/services/broker_adapter.py#L69-L308)):
+- 调 `OrderClient.placeOrder(...)` 只是把请求**写到 socket**（异步，无返回）
+- IBKR 处理后通过**同一个 socket 反向推**响应回来（`orderStatus` / `openOrder` / `execDetails`）
+- 客户端 EWrapper 监听 socket → 收响应 → 调对应 callback
 
-| 步骤 | 名称 | 实现模块 | 说明 |
-|------|------|----------|------|
-| A | 采集市场数据 | `market_data_collector` | 通过 IBKR 获取股价、历史K线、期权链、Greeks |
-| B | AI 策略生成 | `strategy_agent` | 调用 OpenAI 生成 2-3 个排序策略方案 |
-| C | 策略编译 | `strategy_resolver` | 将 AI 定性方案编译为可执行订单（选到期日、选行权价、计算数量） |
-| D | 自动选择 | `broker_adapter.auto_select_strategy()` | 按 rank 排序，选择第一个非 LOW 置信度的方案 |
-| E | 风控检查 | `risk_gate` | 确定性规则检查：最大亏损、仓位占比、禁止策略、腿数限制 |
-| F | 下单执行 | `order_placer` | 单腿 OPT 订单或多腿 BAG 组合订单 |
+**短连每次都要重做 ibapi handshake**（auth + version negotiation, ~1-2 秒）；短连关闭瞬间如果有响应在路上直接丢；订单状态/账户变化/错误码推送全部收不到。所以 4 个 Pool/Client = **4 个独立长连 socket**，互不阻塞（OrderClient 等下单响应不影响 MarketDataPool 收 tick）。
 
-每个步骤都有独立的异常捕获，失败时返回对应的 `PipelineResult` 状态码（如 `COLLECT_FAILED`、`AI_FAILED`、`RISK_BLOCKED` 等），并写入 AuditEvent 用于时间线追踪 ([broker_adapter.py:46](https://github.com/ChunmiaoYu/options_ai_trader/blob/f5f3ac84e9c5d963fc1450f12306ea264183dfad/src/options_event_trader/services/broker_adapter.py#L46))。
+### 引用计数去重（MarketDataPool 关键设计）
 
-```mermaid
-sequenceDiagram
-    participant U as 用户/前端
-    participant API as API Server
-    participant DB as PostgreSQL
-    participant W as Worker
-    participant IBKR as IBKR TWS
-    participant AI as OpenAI
+多个机会单可能监控同一标的（例如 5 个 opp 都监控 AAPL）。`MarketDataPool.subscribe(symbol, subscriber_id)` 用 ref_count 去重：
 
-    Note over U,AI: 阶段一：Intake 解析与 Opportunity 创建
-
-    U->>API: POST /v1/intake/parse
-    activate API
-    API->>AI: Agent1 LangGraph 解析
-    AI-->>API: ParseIntentResponse
-    deactivate API
-    API-->>U: 解析结果（DRAFT 预览）
-
-    U->>API: POST /v1/opportunities
-    activate API
-    API->>DB: save_draft() 创建 DRAFT
-    deactivate API
-    API-->>U: Opportunity (DRAFT)
-
-    U->>API: POST /v1/opportunities/{id}/submit
-    activate API
-    API->>DB: submit_opportunity() DRAFT->SUBMITTED + 创建 TriggerRule
-    deactivate API
-    API-->>U: Opportunity (SUBMITTED)
-
-    Note over U,AI: 阶段二：Worker 策略 Pipeline
-
-    W->>DB: 轮询 SUBMITTED Opportunities
-    activate W
-    W->>DB: run_scheduler_once() 创建 ExecutionRun
-    W->>DB: run_dispatcher_once() 认领 WorkflowTask
-
-    Note over W,AI: 6 步 Pipeline
-
-    W->>IBKR: Step A: 采集股价 + 期权链
-    IBKR-->>W: MarketContext + OptionChain
-
-    W->>AI: Step B: Agent2 策略生成
-    AI-->>W: 2-3 个 StrategyProposal
-
-    W->>W: Step C: 编译为 ResolvedStrategy
-    W->>W: Step D: 选择最优方案
-    W->>W: Step E: 风控检查
-
-    W->>IBKR: Step F: 下单（OPT/BAG）
-    IBKR-->>W: 订单状态
-    deactivate W
-
-    W->>DB: 写入 StrategyRun + AuditEvent
-    W->>DB: 更新 Opportunity 状态
+```
+opp #5 调 subscribe(AAPL, opp_5)  → ref_count[AAPL] = 1, IBKR reqMktData(AAPL)
+opp #6 调 subscribe(AAPL, opp_6)  → ref_count[AAPL] = 2, IBKR 不重复请求
+opp #5 平仓调 unsubscribe(AAPL, opp_5)  → ref_count[AAPL] = 1, IBKR 仍订阅
+opp #6 平仓调 unsubscribe(AAPL, opp_6)  → ref_count[AAPL] = 0, IBKR cancelMktData(AAPL)
 ```
 
-### Pipeline 状态机
+ref_count 状态持久化到 [`market_data_subscriptions`](https://github.com/ChunmiaoYu/options_ai_trader/blob/6b3d159/alembic/versions/20260507_0025_add_market_data_subscriptions.py) 表（alembic 0025），重启后从表恢复。
 
-策略 Pipeline 的 `PipelineResult.status` 决定 Opportunity 的最终生命周期状态 ([jobs.py:66-73](https://github.com/ChunmiaoYu/options_ai_trader/blob/f5f3ac84e9c5d963fc1450f12306ea264183dfad/src/options_event_trader/worker/jobs.py#L66-L73)):
+### Pool 健康状态对业务层屏蔽
 
-| Pipeline 结果 | Opportunity 生命周期 | 说明 |
-|---------------|---------------------|------|
-| `COMPLETED` / `FILLED` | `COMPLETED` | 订单已成交 |
-| `ORDER_SUBMITTED` | 保持 `SUBMITTED` | 限价单已提交，等待成交 |
-| `NO_VIABLE_STRATEGY` / `RISK_BLOCKED` | `NO_TRADE` | 无可用策略或风控拦截 |
-| `ORDER_FAILED` | `FAILED` | 下单失败 |
-| `COLLECT_FAILED` / `AI_FAILED` / `DRY_RUN_COMPLETE` | 保持 `SUBMITTED` | 可重试 |
+Pool 内部状态机：`CONNECTED → DISCONNECTED → 自动 retry（指数退避 30s/1min/2min/5min）→ 重连成功 → 遍历 ref_count > 0 的 symbol 全部 resubscribe → CONNECTED`。
 
-Sources: [broker_adapter.py:69-308](https://github.com/ChunmiaoYu/options_ai_trader/blob/f5f3ac84e9c5d963fc1450f12306ea264183dfad/src/options_event_trader/services/broker_adapter.py#L69-L308), [jobs.py:60-127](https://github.com/ChunmiaoYu/options_ai_trader/blob/f5f3ac84e9c5d963fc1450f12306ea264183dfad/src/options_event_trader/worker/jobs.py#L60-L127), [intake_service.py:21-44](https://github.com/ChunmiaoYu/options_ai_trader/blob/f5f3ac84e9c5d963fc1450f12306ea264183dfad/src/options_event_trader/services/intake_service.py#L21-L44), [opportunity_service.py:72-149](https://github.com/ChunmiaoYu/options_ai_trader/blob/f5f3ac84e9c5d963fc1450f12306ea264183dfad/src/options_event_trader/services/opportunity_service.py#L72-L149)
-<!-- END:AUTOGEN options_02_architecture_data-flow -->
+业务层只看到两个状态：`Pool ready` / `Pool degraded`。`pool_health_log` 表（alembic 0026）记录所有状态变化历史，前端 banner 显示"心跳挂"时读这张表。
+
+Sources: [architecture-walkthrough.md §3, §6, §7](specs/architecture-walkthrough.md), [alembic 0025-0026](https://github.com/ChunmiaoYu/options_ai_trader/blob/6b3d159/alembic/versions/), [project_vision_and_north_star §1](https://chunmiaoyu.github.io/Projects-Wiki/options-trader/specs/north-star-v1-target/)
+<!-- END:AUTOGEN options_02_architecture_pool_client -->
 
 ---
 
-<!-- BEGIN:AUTOGEN options_02_architecture_module-deps -->
-## 模块依赖关系
+<!-- BEGIN:AUTOGEN options_02_architecture_event_types -->
+## 8 种 event_type 任务
 
-系统代码按功能分为以下几层：**API 层**（路由和请求处理）、**服务层**（业务逻辑编排）、**Agent 层**（AI 调用）、**集成层**（外部系统对接）、**领域层**（数据模型）和**持久化层**（数据库访问）。
+任务队列 `workflow_tasks` 表里所有任务都属于以下 8 种 event_type 之一。每种 event_type 对应一个 handler 函数，handler 处理完后可能塞新任务接力。
 
-### 服务层核心模块
+| # | event_type | 谁触发 | handler 干什么 | 作用域 |
+|---|---|---|---|---|
+| 1 | `SYSTEM_WAKE_UP` | APScheduler 09:00 ET 盘前 30 min（`pandas_market_calendars` 排除节假日） | 4 个 Pool/Client connect + 扫 ACTIVE_MONITORING opp 全部 resubscribe | 全局 |
+| 2 | `SYSTEM_SLEEP` | APScheduler 16:00 ET 盘后 | 停 active_reviews 排程；保留 ref_count 业务订阅意图 | 全局 |
+| 3 | `CONDITION_MET(opp_id)` | MarketDataPool tick callback（不是任务，是回调函数；callback 内部塞此任务） | 拉 10 维 bundle → Agent 2 entry 决策 → 风险门 → 塞 EXECUTE_DECISION | 单 opp |
+| 4 | `AGENT2_REVIEW_TICK(opp_id)` | APScheduler 每 ~10s 扫 `active_reviews` due 行 / 事件熔断窗口连续 / newsTicker 加塞 | 拉 10 维 bundle → Agent 2 review LLM → HOLD / PARTIAL_CLOSE / FULL_CLOSE / ADJUST_STOP → 可能塞 EXECUTE_DECISION | 单 opp |
+| 5 | `EXECUTE_DECISION(decision)` | CONDITION_MET / AGENT2_REVIEW_TICK handler（Agent 2 输出+风险门通过后） | OrderClient.place_split_order 拆批下单 | 单决策 |
+| 6 | `ENTRY_FILLED(opp_id, order_id)` | OrderClient orderStatus callback（累计 FILLED） | 写 positions 表 → 切换 MarketDataPool 订阅模式 → INSERT active_reviews | 单 opp |
+| 7 | `EXIT_FILLED(opp_id, order_id)` | OrderClient orderStatus callback（同上） | 减持仓 / 全平归档 / 取消订阅 / DELETE active_reviews | 单 opp |
+| 8 | `EXPIRE_OPPORTUNITY(opp_id)` | APScheduler 扫 `effective_until` 到点的 opp | 标 opp status = FAILED + 取消订阅 | 单 opp |
 
-服务层是系统的业务逻辑枢纽，各模块职责如下：
+### 任务持久化与崩溃恢复
 
-| 模块 | 职责 | 核心函数 |
-|------|------|----------|
-| `intake_service` | 封装 Agent1 LangGraph 工作流 ([intake_service.py:16-19](https://github.com/ChunmiaoYu/options_ai_trader/blob/f5f3ac84e9c5d963fc1450f12306ea264183dfad/src/options_event_trader/services/intake_service.py#L16-L19)) | `parse_request()` |
-| `opportunity_service` | Opportunity 的 DRAFT/SUBMIT 生命周期 ([opportunity_service.py:72-149](https://github.com/ChunmiaoYu/options_ai_trader/blob/f5f3ac84e9c5d963fc1450f12306ea264183dfad/src/options_event_trader/services/opportunity_service.py#L72-L149)) | `save_draft()`, `submit_opportunity()` |
-| `scheduler_service` | 扫描到期 TriggerRule，创建 ExecutionRun + WorkflowTask ([scheduler_service.py:22-91](https://github.com/ChunmiaoYu/options_ai_trader/blob/f5f3ac84e9c5d963fc1450f12306ea264183dfad/src/options_event_trader/services/scheduler_service.py#L22-L91)) | `enqueue_due_entry_windows()` |
-| `broker_adapter` | 6 步策略 Pipeline 的顶层编排器 ([broker_adapter.py:1-12](https://github.com/ChunmiaoYu/options_ai_trader/blob/f5f3ac84e9c5d963fc1450f12306ea264183dfad/src/options_event_trader/services/broker_adapter.py#L1-L12)) | `execute_opportunity_pipeline()` |
-| `market_data_collector` | IBKR 市场数据采集与 MarketContext 组装 ([market_data_collector.py:1-6](https://github.com/ChunmiaoYu/options_ai_trader/blob/f5f3ac84e9c5d963fc1450f12306ea264183dfad/src/options_event_trader/services/market_data_collector.py#L1-L6)) | `collect_market_context()` |
-| `strategy_resolver` | 将 AI 定性方案编译为可执行订单（纯确定性代码） ([strategy_resolver.py:1-5](https://github.com/ChunmiaoYu/options_ai_trader/blob/f5f3ac84e9c5d963fc1450f12306ea264183dfad/src/options_event_trader/services/strategy_resolver.py#L1-L5)) | `resolve_proposal()` |
-| `risk_gate` | 确定性风控规则检查 ([risk_gate.py:1-4](https://github.com/ChunmiaoYu/options_ai_trader/blob/f5f3ac84e9c5d963fc1450f12306ea264183dfad/src/options_event_trader/services/risk_gate.py#L1-L4)) | `check_risk_gate()` |
-| `order_placer` | 单腿/多腿订单执行 ([order_placer.py:1-9](https://github.com/ChunmiaoYu/options_ai_trader/blob/f5f3ac84e9c5d963fc1450f12306ea264183dfad/src/options_event_trader/services/order_placer.py#L1-L9)) | `place_strategy_orders()` |
-| `pipeline_db` | Pipeline 过程中的 StrategyRun + AuditEvent 持久化 ([pipeline_db.py:1-6](https://github.com/ChunmiaoYu/options_ai_trader/blob/f5f3ac84e9c5d963fc1450f12306ea264183dfad/src/options_event_trader/services/pipeline_db.py#L1-L6)) | `create_strategy_run()`, `write_pipeline_event()` |
-| `monitoring_service` | 持仓监控配置管理 ([monitoring_service.py:1-22](https://github.com/ChunmiaoYu/options_ai_trader/blob/f5f3ac84e9c5d963fc1450f12306ea264183dfad/src/options_event_trader/services/monitoring_service.py#L1-L22)) | `get_monitor_config()` |
+`workflow_tasks` 表持久化所有任务，handler 必须 **idempotent**（重做不出错）。Worker 崩溃后扫 `WHERE status = RUNNING AND picked_at < now() - 60s`，重置为 PENDING 重做。
 
-### Agent 层
-
-系统只保留两个 AI Agent，各自职责清晰：
-
-| Agent | 模块 | 调用时机 | 输入/输出 |
-|-------|------|----------|-----------|
-| **Agent1（Intake）** | `intake_graph.py` + `openai_intake_client.py` | 用户提交自然语言时，API Server 同步调用 | 自然语言 -> `ParseIntentResponse` |
-| **Agent2（Strategy）** | `strategy_agent.py` ([strategy_agent.py:20-55](https://github.com/ChunmiaoYu/options_ai_trader/blob/f5f3ac84e9c5d963fc1450f12306ea264183dfad/src/options_event_trader/agents/strategy_agent.py#L20-L55)) | Worker Pipeline Step B | `MarketContext` -> `StrategyProposalResponse` |
-
-两个 Agent 都使用 OpenAI Structured Outputs，保证返回结果严格符合 Pydantic schema ([strategy_agent.py:43-48](https://github.com/ChunmiaoYu/options_ai_trader/blob/f5f3ac84e9c5d963fc1450f12306ea264183dfad/src/options_event_trader/agents/strategy_agent.py#L43-L48))。Risk Gate 是纯确定性代码，不是 AI Agent ([risk_gate.py:1-4](https://github.com/ChunmiaoYu/options_ai_trader/blob/f5f3ac84e9c5d963fc1450f12306ea264183dfad/src/options_event_trader/services/risk_gate.py#L1-L4))。
-
-### 模块调用关系图
-
-```mermaid
-classDiagram
-    class BrokerAdapter {
-        +execute_opportunity_pipeline()
-        +auto_select_strategy()
-    }
-
-    class MarketDataCollector {
-        +collect_market_context()
-        +extract_stock_price_from_ticks()
-        +extract_option_data_from_ticks()
-    }
-
-    class StrategyAgent {
-        -settings: Settings
-        +generate(context) StrategyProposalResponse
-    }
-
-    class StrategyResolver {
-        +resolve_proposal()
-        +select_expiry()
-        +select_strike_by_delta()
-        +calculate_quantity()
-        +calculate_risk_metrics()
-    }
-
-    class RiskGate {
-        +check_risk_gate() RiskGateResult
-    }
-
-    class OrderPlacer {
-        +place_strategy_orders()
-    }
-
-    class IntakeService {
-        -parser: OpenAIIntentParserAdapter
-        -graph: StateGraph
-        +parse_request()
-    }
-
-    class OpportunityService {
-        +save_draft()
-        +submit_opportunity()
-        +list_queue()
-    }
-
-    class SchedulerService {
-        +enqueue_due_entry_windows()
-        +dispatch_one_workflow_task()
-    }
-
-    class PipelineDB {
-        +create_strategy_run()
-        +update_strategy_run_status()
-        +write_pipeline_event()
-    }
-
-    class WorkerJobs {
-        +run_scheduler_once()
-        +run_dispatcher_once()
-        +run_strategy_pipeline()
-        +monitor_open_positions_once()
-    }
-
-    class IBKRClient {
-        +connect_and_start()
-        +request_market_data_snapshot()
-        +request_historical_data()
-        +request_option_secdef()
-        +placeOrder()
-    }
-
-    class Settings {
-        +ibkr_dry_run: bool
-        +ibkr_mock: bool
-        +openai_model: str
-        +worker_poll_seconds: int
-    }
-
-    BrokerAdapter --> MarketDataCollector : Step A
-    BrokerAdapter --> StrategyAgent : Step B
-    BrokerAdapter --> StrategyResolver : Step C
-    BrokerAdapter --> RiskGate : Step E
-    BrokerAdapter --> OrderPlacer : Step F
-    BrokerAdapter --> PipelineDB : 持久化
-
-    WorkerJobs --> SchedulerService : 调度
-    WorkerJobs --> BrokerAdapter : 策略 Pipeline
-
-    MarketDataCollector --> IBKRClient : 市场数据
-    OrderPlacer --> IBKRClient : 下单
-
-    IntakeService --> StrategyAgent : ;
-    OpportunityService --> SchedulerService : ;
-
-    BrokerAdapter --> Settings : 配置
-    StrategyAgent --> Settings : 配置
-    OrderPlacer --> Settings : 配置
+```
+task_id | event_type      | status   | picked_at  | done_at
+100     | EXECUTE_DECISION | RUNNING  | 11:30:15   | NULL    ← 卡住, handler 没标 DONE
+                                                       ↓ 重启后扫到
+                                                     重置 status=PENDING 重做
 ```
 
-### 配置管理
+例如下单 handler 必须先查 `orders.client_order_id` 是否已存在，存在则跳过；否则重做会重复下单。
 
-`Settings` 类基于 `pydantic-settings`，从 `.env` 文件和环境变量中加载配置，使用 `@lru_cache` 确保全局单例 ([settings.py:9-59](https://github.com/ChunmiaoYu/options_ai_trader/blob/f5f3ac84e9c5d963fc1450f12306ea264183dfad/src/options_event_trader/settings.py#L9-L59))。关键配置分为以下几组：
+### Tick callback / news ticker callback ≠ 任务
 
-| 配置组 | 关键字段 | 默认值 |
-|--------|----------|--------|
-| **应用** | `app_env`, `api_port`, `log_level` | `dev`, `8080`, `INFO` ([settings.py:13-16](https://github.com/ChunmiaoYu/options_ai_trader/blob/f5f3ac84e9c5d963fc1450f12306ea264183dfad/src/options_event_trader/settings.py#L13-L16)) |
-| **数据库** | `postgres_host`, `postgres_port`, `postgres_db` | `localhost`, `5432`, `options_event_trader` ([settings.py:18-23](https://github.com/ChunmiaoYu/options_ai_trader/blob/f5f3ac84e9c5d963fc1450f12306ea264183dfad/src/options_event_trader/settings.py#L18-L23)) |
-| **OpenAI** | `openai_api_key`, `openai_model` | `None`, `gpt-5` ([settings.py:25-26](https://github.com/ChunmiaoYu/options_ai_trader/blob/f5f3ac84e9c5d963fc1450f12306ea264183dfad/src/options_event_trader/settings.py#L25-L26)) |
-| **IBKR** | `ibkr_port`, `ibkr_dry_run`, `ibkr_mock` | `7497`, `False`, `False` ([settings.py:28-36](https://github.com/ChunmiaoYu/options_ai_trader/blob/f5f3ac84e9c5d963fc1450f12306ea264183dfad/src/options_event_trader/settings.py#L28-L36)) |
-| **Worker** | `worker_poll_seconds`, `monitor_poll_seconds` | `15`, `10` ([settings.py:38-39](https://github.com/ChunmiaoYu/options_ai_trader/blob/f5f3ac84e9c5d963fc1450f12306ea264183dfad/src/options_event_trader/settings.py#L38-L39)) |
+IBKR 推 tick 来时，MarketDataPool 内部的 `on_tick(...)` 函数会被自动触发——这是**事件回调**，不是任务。**Callback 内部如果发现要做后续大动作（例如条件触发要走 Agent 2 决策），才塞任务到队列**。
 
-数据库连接 URL 通过 `resolved_database_url` 计算属性自动组装，优先使用 `database_url` 环境变量，否则从各 `postgres_*` 字段拼接 ([settings.py:42-50](https://github.com/ChunmiaoYu/options_ai_trader/blob/f5f3ac84e9c5d963fc1450f12306ea264183dfad/src/options_event_trader/settings.py#L42-L50))。
+| 类型 | 谁推 | 走任务队列吗 |
+|---|---|---|
+| MarketDataPool `on_tick` | IBKR | 否（只是 callback；条件触发后 callback 内部塞 `CONDITION_MET`） |
+| MarketDataPool `on_news` (newsTicker) | IBKR | 否（callback 内部塞 `AGENT2_REVIEW_TICK` 加塞） |
+| OrderClient `orderStatus` | IBKR | 否（callback 内部累计 FILLED 后塞 `ENTRY_FILLED` / `EXIT_FILLED`） |
 
-### 数据库会话管理
+被推来 vs 主动写到挂单板，是两个独立机制。
 
-数据库会话通过两种模式提供 ([session.py:20-42](https://github.com/ChunmiaoYu/options_ai_trader/blob/f5f3ac84e9c5d963fc1450f12306ea264183dfad/src/options_event_trader/db/session.py#L20-L42)):
+Sources: [architecture-walkthrough.md §2, §4, §8](specs/architecture-walkthrough.md), [project_vision_and_north_star §1](https://chunmiaoyu.github.io/Projects-Wiki/options-trader/specs/north-star-v1-target/)
+<!-- END:AUTOGEN options_02_architecture_event_types -->
 
-- **`session_scope()`** — Worker 使用的上下文管理器，自动 commit/rollback/close
-- **`get_db()`** — API Server 使用的 FastAPI 依赖注入生成器
+---
 
-两者都配置了 `autoflush=False`、`autocommit=False`、`expire_on_commit=False`，确保 ORM 对象在 session 关闭后仍可访问 ([session.py:17](https://github.com/ChunmiaoYu/options_ai_trader/blob/f5f3ac84e9c5d963fc1450f12306ea264183dfad/src/options_event_trader/db/session.py#L17))。
+<!-- BEGIN:AUTOGEN options_02_architecture_apscheduler -->
+## APScheduler 调度逻辑
 
-### 设计要点
+APScheduler 是**唯一**会主动产生任务的代码路径。三个时间锚：
 
-1. **API Server 与 Worker 通过数据库解耦**：API Server 写入 Opportunity 和 TriggerRule 后即返回，Worker 独立轮询执行，两个进程没有直接通信
-2. **Pipeline 步骤隔离**：6 步中每步都有独立的 try/catch，任何一步失败不影响其他 Opportunity 的处理
-3. **AI 与确定性代码分离**：Agent2 只负责生成定性方案，编译（Step C）和风控（Step E）是纯确定性代码
-4. **三种执行模式**：通过 `ibkr_mock` 和 `ibkr_dry_run` 配置，支持 Mock 测试、Dry-run 验证和真实下单 ([settings.py:35-36](https://github.com/ChunmiaoYu/options_ai_trader/blob/f5f3ac84e9c5d963fc1450f12306ea264183dfad/src/options_event_trader/settings.py#L35-L36))
+| 时间锚 | 动作 | 频率 |
+|---|---|---|
+| **09:00 ET**（盘前 30 min，`pandas_market_calendars` 排除节假日 + 早收市日适配） | 塞 `SYSTEM_WAKE_UP` | 每个交易日 1 次 |
+| **每 ~10 秒** | 扫 `active_reviews` 表 `WHERE next_review_due_at <= now()`，对每行 opp 塞 `AGENT2_REVIEW_TICK`，立即 UPDATE `next_review_due_at = now() + review_interval_sec` | 持续 |
+| **16:00 ET**（盘后） | 塞 `SYSTEM_SLEEP` | 每个交易日 1 次 |
 
-Sources: [broker_adapter.py:1-40](https://github.com/ChunmiaoYu/options_ai_trader/blob/f5f3ac84e9c5d963fc1450f12306ea264183dfad/src/options_event_trader/services/broker_adapter.py#L1-L40), [strategy_agent.py:20-55](https://github.com/ChunmiaoYu/options_ai_trader/blob/f5f3ac84e9c5d963fc1450f12306ea264183dfad/src/options_event_trader/agents/strategy_agent.py#L20-L55), [risk_gate.py:1-48](https://github.com/ChunmiaoYu/options_ai_trader/blob/f5f3ac84e9c5d963fc1450f12306ea264183dfad/src/options_event_trader/services/risk_gate.py#L1-L48), [settings.py:1-60](https://github.com/ChunmiaoYu/options_ai_trader/blob/f5f3ac84e9c5d963fc1450f12306ea264183dfad/src/options_event_trader/settings.py#L1-L60), [session.py:1-43](https://github.com/ChunmiaoYu/options_ai_trader/blob/f5f3ac84e9c5d963fc1450f12306ea264183dfad/src/options_event_trader/db/session.py#L1-L43)
-<!-- END:AUTOGEN options_02_architecture_module-deps -->
+时区用 `ZoneInfo("America/New_York")` 确保 DST 正确转换。
+
+### `active_reviews` 表持久化 review 节奏
+
+[alembic 0024](https://github.com/ChunmiaoYu/options_ai_trader/blob/6b3d159/alembic/versions/20260507_0024_add_active_reviews.py) 加的表，结构：
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| `opp_id` | UUID PK | 持仓机会单 |
+| `next_review_due_at` | TIMESTAMP TZ | 下次 review 时刻 |
+| `review_interval_sec` | INTEGER | review 间隔（默认 300，事件熔断窗口缩到 30） |
+
+| 写入时机 | 改 | 触发 |
+|---|---|---|
+| `ENTRY_FILLED` handler | INSERT 一行 | 持仓刚建立 |
+| `EXIT_FILLED` handler（全平） | DELETE | 不再 review |
+| 事件熔断窗口 / newsTicker 加塞 | UPDATE `review_interval_sec=30` | 进熔断 |
+| 事件窗口结束 | UPDATE `review_interval_sec=300` | 出熔断 |
+
+### Adaptive review interval
+
+`review_scheduler.compute_review_interval(position, market)` 决定下次 review 间隔。默认 5 min，**4 触发条件命中**缩到 1-2 min（[`PositionMaintenanceWorker.review_once()`](https://github.com/ChunmiaoYu/options_ai_trader/blob/6b3d159/src/options_event_trader/worker/loop.py#L320-L354) 已 wire）：
+
+| # | 触发条件 | 缩短 review 频率的理由 |
+|---|---|---|
+| 1 | 1-min bar 移动 ≥ 1.5% 或 IV 跳 ≥ 10% | 行情突变需快速反应 |
+| 2 | MTM 距 SL ≤ 20% | 接近止损线 |
+| 3 | MTM 距 TP ≥ 80% | 接近止盈线 |
+| 4 | 距 expiry ≤ 1 trading day | 临近到期需密切观察 Theta |
+
+### 事件熔断窗口（连续 loop）
+
+财报 / CPI / FOMC ±15 min 内，review 改**连续 loop**（前次完成 → 立即下一次，间隔由 LLM 决策延迟决定 ~15-30s/轮）：
+
+- 单次 review 全管道 timeout = 25s，超时跳过该轮
+- 窗口持续上限 60 min，到点强制退出连续模式回 5 min 节奏
+- 事件公布瞬间（newsTicker 收到）立即塞一次 review 任务（跳过等待）
+
+`event_calendar` 表（alembic 0027）记录事件时间窗口，APScheduler 扫表决定哪些 opp 进熔断。
+
+Sources: [loop.py:320-354](https://github.com/ChunmiaoYu/options_ai_trader/blob/6b3d159/src/options_event_trader/worker/loop.py#L320-L354), [alembic 0024 / 0027](https://github.com/ChunmiaoYu/options_ai_trader/blob/6b3d159/alembic/versions/), [architecture-walkthrough.md §6](specs/architecture-walkthrough.md), invariant 20
+<!-- END:AUTOGEN options_02_architecture_apscheduler -->
+
+---
+
+<!-- BEGIN:AUTOGEN options_02_architecture_data_flow -->
+## 端到端数据流（AAPL 突破 280 实例）
+
+下面用一个真实场景跑通：客户提交"AAPL 突破 280 时买 100 手 call" → 系统监控 → 触发 → 入场 → review → 平仓。深度版见 [架构通俗讲解](specs/architecture-walkthrough.md)。
+
+```mermaid
+sequenceDiagram
+    participant U as 客户/前端
+    participant API as FastAPI
+    participant A1 as Agent 1<br/>DeepSeek
+    participant DB as PostgreSQL
+    participant APS as APScheduler
+    participant MDP as MarketDataPool
+    participant OC as OrderClient
+    participant A2 as Agent 2<br/>DeepSeek/Haiku
+    participant IBKR as IBKR Gateway
+
+    Note over U,IBKR: Step 0 — 客户提交意图（任何时间）
+    U->>API: POST /v1/intake/parse "AAPL 突破 280 时买 100 手 call"
+    API->>A1: 解析自然语言（symbol/trigger/direction）
+    A1-->>API: ParseIntentResponse
+    API-->>U: 解析结果展示
+    U->>API: POST /v1/opportunities + submit
+    API->>DB: opp #5 INSERT (status=ACTIVE_MONITORING)
+
+    Note over U,IBKR: Step 1 — 09:00 ET 盘前 SYSTEM_WAKE_UP
+    APS->>DB: 塞 SYSTEM_WAKE_UP
+    DB->>MDP: handler 取任务 → connect Pool/Client
+    MDP->>IBKR: subscribe(AAPL, opp_5, on_tick=check_opp5)
+
+    Note over U,IBKR: Step 2 — 09:45:32 ET tick 触发
+    IBKR-->>MDP: tick AAPL=$280.10
+    MDP->>MDP: on_tick → check_opp5(280.10) → 触发！
+    MDP->>DB: 塞 CONDITION_MET(opp_5, 280.10)
+
+    Note over U,IBKR: Step 3 — Agent 2 入场决策
+    DB->>A2: handler 取任务 → 拉 10 维 bundle → 喂 LLM
+    A2-->>DB: 策略 LONG_CALL 100 手 + 风险门 ✓
+    DB->>DB: 塞 EXECUTE_DECISION
+
+    Note over U,IBKR: Step 4 — 拆批下单 100 手 = 10×10
+    DB->>OC: handler 取任务 → place_split_order
+    OC->>IBKR: 第 1 批 LMT 10 手
+    IBKR-->>OC: orderStatus FILLED
+    OC->>DB: 写 orders / fills 表
+    OC->>IBKR: 第 2 批 ... 第 10 批
+    IBKR-->>OC: 累计 100 手 FILLED
+    OC->>DB: 塞 ENTRY_FILLED
+
+    Note over U,IBKR: Step 5 — 持仓建立 + 启动 review
+    DB->>DB: positions INSERT, opp #5 → HOLDING
+    DB->>DB: active_reviews INSERT (next_due=now+5min)
+    MDP->>IBKR: subscribe(AAPL_285C, opp_5, no_callback)
+
+    Note over U,IBKR: Step 6 — 5 min review 循环
+    loop 每 ~10s APScheduler 扫 active_reviews
+        APS->>DB: 扫 due 行 → 塞 AGENT2_REVIEW_TICK
+        DB->>A2: handler 拉 10 维 bundle → review LLM
+        A2-->>DB: HOLD / PARTIAL_CLOSE / FULL_CLOSE
+    end
+
+    Note over U,IBKR: Step 7 — Agent 2 决定 PARTIAL_CLOSE 50 手
+    A2->>DB: 塞 EXECUTE_DECISION (EXIT 50 手)
+    DB->>OC: place_split_order SELL 50
+    OC->>IBKR: 5 批 × 10 手
+    IBKR-->>OC: FILLED
+    OC->>DB: 塞 EXIT_FILLED → positions 100→50
+
+    Note over U,IBKR: Step 8 — 全平 + 取消订阅
+    A2->>DB: 塞 EXECUTE_DECISION (EXIT 50)
+    OC->>IBKR: 平剩 50 手 → FILLED
+    DB->>DB: positions 50→0, opp #5 → COMPLETED
+    DB->>DB: active_reviews DELETE
+    MDP->>IBKR: unsubscribe(AAPL, opp_5)<br/>ref_count→0 → cancelMktData
+
+    Note over U,IBKR: Step 9 — 16:00 ET SYSTEM_SLEEP
+    APS->>DB: 塞 SYSTEM_SLEEP → 停 review 排程
+```
+
+**关键不变量**：
+- 1 个 opp 全程会有 N 个 order（entry / 部分平 / 全平 / 取消重挂），所以任务 payload 用 `opp_id` 不用 `order_id`
+- 任务队列 + active_reviews 都持久化，进程崩溃后从 DB 恢复，不丢任务
+- 3 类掉线异常应对见 [架构通俗讲解 §7](specs/architecture-walkthrough.md)
+
+Sources: [architecture-walkthrough.md §4](specs/architecture-walkthrough.md), [project_vision_and_north_star](https://chunmiaoyu.github.io/Projects-Wiki/options-trader/specs/north-star-v1-target/)
+<!-- END:AUTOGEN options_02_architecture_data_flow -->
+
+---
+
+<!-- BEGIN:AUTOGEN options_02_architecture_concurrency -->
+## 并发上限
+
+3 个独立维度，**取最小值**就是真实并发上限：
+
+| 维度 | 上限 | 说明 |
+|---|---|---|
+| **资金限制**（真瓶颈） | 3-5 个并发持仓 | ~$2M RMB 账户，按 LONG_CALL 100 手 ~$50k / IRON_CONDOR ~$40k 估算，保留 30% buffer 防 margin call |
+| **机会单总数**（监控+持仓） | 20-30 个 | 监控中未触发的不吃资金，只吃订阅 stream 配额 |
+| **IBKR stream 配额**（Pro 默认 100） | 30+ 机会单 | MarketDataPool ref_count 去重，多 opp 共享同 underlying |
+| **IBKR client_id 配额**（默认 32） | 完全用不完 | 我们只用 5 个长连（4 基础设施 + 1 临时段位） |
+
+**重要区分**：
+- **持仓数量 = 3-5 个**（已下单未平仓，吃资金）
+- **机会单总数 = 20-30 个**（持仓 + 监控中未触发的草稿，只吃订阅 stream）
+
+监控中的机会单只占订阅配额，不占资金；条件触发后如果资金不够，风险门拒绝入场或要求等其他仓位平掉。
+
+Sources: [architecture-walkthrough.md §10](specs/architecture-walkthrough.md), [project_production_position_size](https://github.com/ChunmiaoYu/options_ai_trader)（项目内 memory）
+<!-- END:AUTOGEN options_02_architecture_concurrency -->
+
+---
+
+<!-- BEGIN:AUTOGEN options_02_architecture_implementation_status -->
+## 实施状态（in-flight 架构）
+
+设计目标 vs 当前代码现状不完全重合。诚实区分以下三档：
+
+### 已 ship（2026-05-08 验证）
+
+| 组件 | 状态 | 证据 |
+|---|---|---|
+| **Phase B alembic 0024-0029** 7 张新表 | ✅ 已 ship 本地 | active_reviews / market_data_subscriptions / pool_health_log / event_calendar / strategy_whitelist_seed / brokerorder_algo_split_batch_and_workflow_check |
+| **Agent 2 review cycle wire** | ✅ 已 ship | [`run_agent2_review_cycle()`](https://github.com/ChunmiaoYu/options_ai_trader/blob/6b3d159/src/options_event_trader/worker/loop.py#L202-L204) wire 进 worker 主循环 |
+| **DeepSeek V4-Flash 切换** | ✅ Agent 1 + Agent 2 entry 都已切 | [`StrategyAgent._call_deepseek()`](https://github.com/ChunmiaoYu/options_ai_trader/blob/6b3d159/src/options_event_trader/agents/strategy_agent.py#L69-L128)；worker log 实证 `deepseek-v4-flash` |
+| **UI v2 Dashboard 暗色** | ✅ Plan 1 + Plan 2 已 ship | 见 [客户协作 Dashboard](dashboard/) |
+| **Worker visualization 状态机 v2** | ✅ alembic 0023 已 ship；4 个 placeholder 测试待真实施 | [`SharedTimeWorker`](https://github.com/ChunmiaoYu/options_ai_trader/blob/6b3d159/src/options_event_trader/worker/loop.py#L248-L294) / [`ConditionWorker`](https://github.com/ChunmiaoYu/options_ai_trader/blob/6b3d159/src/options_event_trader/worker/loop.py#L297-L317) / [`PositionMaintenanceWorker`](https://github.com/ChunmiaoYu/options_ai_trader/blob/6b3d159/src/options_event_trader/worker/loop.py#L320-L354) class 结构已建立 |
+
+### 三环境部署 pending
+
+| 项 | 状态 |
+|---|---|
+| Phase B alembic upgrade head 三环境 (cloud-dev / UAT / PROD) | ⏳ 等周日 IBKR 维护窗口 + 用户 SSH（finding `F-2026-05-07-PHASE-B-DEPLOY-PENDING`） |
+| Paper 完整生命场景 e2e | ⏳ 需美股开盘 + Docker（finding `F-2026-05-07-PHASE-B-PAPER-E2E-PENDING`） |
+| IBKR 订阅 propagate (NASDAQ Network C / NYSE Network A/B / CBOE Streaming Indexes) | ⏳ 已订，等 5-15 min propagate（finding `F-2026-05-08-IBKR-SUBSCRIPTIONS-TWS-ONLY-NOT-API`） |
+
+### 真实施 pending
+
+| P0 主线 | 工作量估 | 说明 |
+|---|---|---|
+| **8 个 event_type handler 真实施**（`F-2026-05-07-WORKER-HANDLER-IMPLEMENTATION`） | ~1-2 天 | 当前 worker 仍是单进程 `while True` 4 步循环，未升级为 8 handler 取任务驱动模型 |
+| **Phase C split_order_dispatcher**（spec `2026-05-06-split-order-adaptive-design.md`） | ~4-5 hr | 拆批下单 + Adaptive 接入 broker_adapter |
+| **MarketDataPool 真集成**（订阅去重 + ref_count + reconnect resubscribe） | 含在 P0 主线内 | 当前直接通过 `IBKRClient.subscribe_pnl_single()` 每持仓订阅 |
+
+> **下次大架构改动同步规则**：改 8 event_type / 4 Pool/Client / DB schema / APScheduler 调度逻辑时，**回到本文档 + [架构通俗讲解](specs/architecture-walkthrough.md) + [⭐ 北极星 §1](https://chunmiaoyu.github.io/Projects-Wiki/options-trader/specs/north-star-v1-target/)** 三处同步更新。
+
+Sources: [task_plan.md (项目内剩余任务清单)], [findings.md (项目内)], [loop.py:132-364](https://github.com/ChunmiaoYu/options_ai_trader/blob/6b3d159/src/options_event_trader/worker/loop.py#L132-L364)
+<!-- END:AUTOGEN options_02_architecture_implementation_status -->
 
 ---
