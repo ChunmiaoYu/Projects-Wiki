@@ -191,14 +191,34 @@ timeline
 
 LLM 输入 = **10 维 Bundle** (维度 1-9 都有值; 维度 10 "上次 summary" 在入场时为 null, 因为还没历史)
 
-输出二选一:
+输出: **rejection_type** (TEMPORARY / PERMANENT / null) + (若 null) 策略 (策略类型 / 腿 / 数量):
 
-- **不能下单** → <span class="term-state">机会单</span>转 <span class="term-state">失败单</span>, 失败原因 = "Agent-2 拒绝"
-- **可以下单** → 给出策略 (含策略类型 / 腿 / 数量) → <span class="term-service">风险门</span> (risk_gate) 三验证 (symbol / direction / 仓位)
+- **不能下单 — rejection_type = PERMANENT** (用户意图无效 / 策略根本不应该执行 / symbol 退市 / 风险预算耗尽) → <span class="term-state">机会单</span>**立即**转 <span class="term-state">失败单</span>, 失败原因 = "Agent-2 永久拒绝"
+- **不能下单 — rejection_type = TEMPORARY** (流动性临时差 / spread 太宽 / IV 临时偏高 / 价格刚触发等下 confirm) → **进 Entry phase review loop** (见 5.1.1), 不立即失败
+- **可以下单 — rejection_type = null** → 策略经 <span class="term-service">风险门</span> (risk_gate) 三验证 (symbol / direction / 仓位)
     - **三验证全过** → 下单 → 成功后转 <span class="term-state">持仓单</span>
-    - **任一验证失败** (如 LLM 给的策略方向不符 opp.direction) → **要求 LLM 重跑一次** (给一次机会, prompt 提醒 LLM 上次违反了什么)
+    - **任一验证失败** → **要求 LLM 重跑一次** (prompt 提醒上次违反了什么)
         - 重跑通过 → 下单 → <span class="term-state">持仓单</span>
         - **重跑仍违 → 转 <span class="term-state">失败单</span>**, 失败原因 = "Agent-2 风控不通过"
+
+### 5.1.1 Entry phase review loop (2026-05-15 客户开会引入)
+
+> **背景**: 当前 v1 "Agent 2 一次拒绝即转失败单" 太脆弱 — 真实市场 5 min 内可完全反转, 流动性临时差 / spread 太宽 / IV spike 等情况下次 review 可能恢复, 浪费机会。客户验证后期望窗口内轮询。
+
+时间触发 (effective_window / effective_now) 的入场决策走 review loop 机制, 跟仓位管理类似:
+
+| 关键点 | 设计 |
+|---|---|
+| **复用 `active_reviews` 表** | 加 `review_phase` 列区分 `ENTRY` / `POSITION`; APScheduler 扫表逻辑统一, handler 内部按 phase 走不同路径 |
+| **rejection_type 区分** | TEMPORARY → 留在 ACTIVE_MONITORING + INSERT `active_reviews(review_phase=ENTRY, next_review_due_at=now+interval)` / PERMANENT → 立即 FAILED, 不浪费 token |
+| **review interval 自适应窗口长度** | 短窗 (30 min) 自动 1-2 min/次; 长窗 (1 day) 5 min/次默认。具体公式待 spec 阶段实测调整 |
+| **立即触发 (effective_now)** | 默认 `effective_until = effective_now + 30 min`, 30 min 内 review 3-5 次 |
+| **条件触发后 (PRICE_BREACH / MA_CROSSOVER)** | 一旦 CONDITION_MET, 进 ENTRY_REVIEW_PHASE 直至窗口过期, **不依赖再次满足条件** (客户 "突破 280 买" 一旦回落 279.99 不应又得等) |
+| **窗口过期** | EXPIRE_OPPORTUNITY handler 转 FAILED (review_phase=ENTRY 的 opp), 失败原因 = "窗口过期未入场" |
+| **ENTRY_FILLED** | UPDATE active_reviews.review_phase = POSITION, 走仓位管理路径 |
+| **全平 EXIT_FILLED** | DELETE 该 opp 的 active_reviews 行 |
+
+> **关联 spec**: 待 brainstorm `2026-05-15-entry-review-loop-design.md` + 五专家评审。**关联 invariant 24** (待 spec ship 后落 CLAUDE.md): "Entry phase review loop — 时间触发不是一次性, Agent 2 临时拒绝自动重试至窗口过期; rejection_type 区分 TEMPORARY/PERMANENT"
 
 ### 5.2 仓位管理 (<span class="term-state">持仓单</span>, 5 min/次 + 事件窗口连续 loop)
 
@@ -298,18 +318,26 @@ sequenceDiagram
 ```
 [草稿]  ──客户确认──→  [机会单]  ──注册工人──┐
                                                   ↓
-                                ┌─Agent 2 拒绝──→ [失败单]
+                                ┌─Agent 2 永久拒绝 (PERMANENT)──→ [失败单]
+                                ├─Agent 2 临时拒绝 (TEMPORARY)
+                                │   ↓ INSERT active_reviews(review_phase=ENTRY)
+                                │   └─ Entry review loop (interval 自适应窗口长度)
+                                │       ↓
+                                │       ├─下次 review 通过─→ 风控 → 下单
+                                │       ├─下次 review 仍 TEMPORARY─→ 继续 loop
+                                │       └─时间窗口过期──→ [失败单] (窗口过期未入场)
                                 ├─风控重试仍违──→ [失败单]
-                                ├─时间窗口过期──→ [失败单]
                                 └─下单成功─────→ [持仓单]
                                                   ↓
-                                          信息工人每 5 min
+                                          信息工人每 5 min (review_phase=POSITION)
                                        Agent 2 平仓/加仓决策
                                                   ↓
                                               全部平仓
                                                   ↓
                                               [已完成单]
 ```
+
+> **2026-05-15 客户开会引入 Entry phase review loop**: 时间触发 Agent 2 临时拒绝不再立即转失败, 详见 §5.1.1。
 
 ---
 
@@ -633,8 +661,57 @@ sequenceDiagram
 - 数据样本季度 refresh 一次 (跑 phase1 probe 脚本即可)
 - 关联文档:
     - **⭐ [架构通俗讲解](architecture-walkthrough.md)** — 任务队列 / Pool/Client / DB 5 类表 / 完整场景 (新读者必看)
-    - 项目内 brainstorming 归档: `docs/superpowers/discussions/2026-05-05-north-star-section1-brainstorming.md`
+    - 项目内 brainstorming 归档: `docs/superpowers/discussions/`
+    - **公开决策记录**: `../decisions/` — 客户开会 / 重大架构决策对外可见版
     - 北极星 §2-§7 (远景 / 5 问 / 中间路径 / forward compat / 历史决策 / 反偏离): memory `project_vision_and_north_star.md`
+
+---
+
+## <span class="h-num">16.</span> 客户开会 4 项变更 (2026-05-15)
+
+客户实际使用场景反馈, 影响 v1 状态机流转 + 远景 scope + 系统能力层。详见公开决策记录 [`../decisions/2026-05-15-client-meeting-scope-revision.md`](../decisions/2026-05-15-client-meeting-scope-revision.md)。
+
+### D1 — 用户表达层条件触发永久锁死 v1 范围
+
+客户真实交易场景**几乎不下纯条件触发单** (e.g. "MA5 上穿"/"IV > 50%"), 远景"丰富条件触发"从用户表达层删除:
+
+- **用户输入框 / 前端解析 / Agent 1 schema** 永久锁死 v1: 立即 / 时间 / PRICE_BREACH 常数 / 单 MA MA_CROSSOVER / 时间+条件
+- **AI 自主流 (Discovery Agent)** 内部仍可用任意 condition logic, **不暴露 UI**
+- 北极星 §4 #6 状态 IDEA → **PERMANENTLY-DEFERRED-USER-LAYER**
+
+### D2 — Entry phase review loop
+
+详见 §5.1.1 + §7 状态机更新。时间触发 Agent 2 临时拒绝走 review loop 至窗口过期, 不立即失败。
+
+### D3 — AI 决策时间线 UI (客户可解释性)
+
+持仓详情页加 "AI 决策时间线" tab (跟现有 timeline tab 并列):
+
+- 默认显示 **state-changing 决策** (ENTRY / PARTIAL_CLOSE / FULL_CLOSE / ADJUST_STOP / 未来 ADD), 含失败 entry + entry review loop 中每次临时拒绝
+- HOLD 默认折叠, "显示所有" toggle 可看 (一持仓一天 10+ HOLD)
+- 点击 popup: 完整 reasoning (≤600 字) + 输入 10 维 Bundle (dim 10 上次 summary 默认展开看 thesis 链) + AI raw output + risk gate trace
+- 跟 timeline tab 区分: **timeline = 业务状态变化 (客观事件)**; **决策 tab = AI 思考过程 (主观判断)**
+- 失败机会单也加决策 tab — 看到 entry review loop 中每次为什么临时拒绝
+- 关联 spec 待 brainstorm: `2026-05-15-decision-disclosure-ui-design.md`
+
+### D4 — 系统自愈全面化 (system resilience / self-healing)
+
+客户痛点: NZ 凌晨美股盘中故障 dev 不能 reach, 必须自愈。把"断线重连"升级为 **16 类故障矩阵全覆盖**:
+
+| 类别 | 当前 | 期望 |
+|---|---|---|
+| IBKR socket / Gateway / Network / Market data sub | wave 11 ✓ | chaos test 补 |
+| VM / Worker / OOM / Disk full / NTP | ⏳ systemd | restart=on-failure + MemoryHigh + 监控 |
+| DB / LLM 限流 / Key 失效 / Quota | 部分 | + 显式 retry / **LLM fallback chain** env 切 |
+| **orderStatus callback 丢失** (silent drift) | ❌ | + **Reconcile loop** periodic reqExecutions |
+| **active_reviews stale** (worker 死时 review 没 fire) | ❌ | + APScheduler misfire + 重启扫表 catch-up |
+| MarketDataPool 100 stream 配额 / IBC 2FA push timeout / Position adoption | 部分 / 兜底 | LRU evict / 1-2 周实测 / chaos test 补 |
+
+**三件套硬要求**: 每类故障必须有 (1) 自动恢复路径 (2) 监控告警 (NZ 凌晨触达 oncall — Slack/邮件 + 客户可见 banner) (3) chaos test 覆盖 (`tests/chaos/`)。
+
+**新加机制**: Reconcile loop 修 silent drift / LLM fallback chain / 月度 chaos drill / NZ 凌晨告警触达。
+
+**关联 invariant 升级** (待 spec 后落): 新加 invariant 25 + 升级 invariant 18。**关联 spec 待 brainstorm**: `2026-05-15-system-resilience-self-healing-design.md`。
 
 ---
 
