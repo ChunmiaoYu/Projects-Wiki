@@ -110,8 +110,11 @@
   - `TEMPORARY` — 流动性临时差 / spread 太宽 / IV 临时偏高 / 价格刚触发等下 confirm
   - `PERMANENT` — 用户意图无效 / 策略根本不应该执行 / symbol 退市 / 风险预算耗尽
   - `null` — 决策通过
-- **review interval 自适应窗口长度**:
-  - 公式 (待 spec 阶段实测调整): 短窗 (30 min) 自动 1-2 min/次, 长窗 (1 day) 5 min/次默认
+- **Review 节奏 = 连续 loop** (2026-05-15 10:01 NZ 用户补充澄清, 跟北极星 §1 / wiki §5.2 事件熔断窗口同 pattern, **不是**自适应 interval 公式):
+  - 前一次 Agent 2 判断 + 决策实施完成 (HOLD / 加仓 fill / 减仓 fill) → **立即下一轮 review**
+  - 周期由 LLM 决策延迟主导 (~15-30s/轮, 可能不到 1 min)
+  - 单次 review 全管道 timeout = 25s (跟事件熔断同) 超时跳过该轮继续 loop
+- **持仓 review 5 min 默认不动**: 用户提"仓位管理工人已有此设定"是误解现有行为 (现有持仓 review 默认 5 min/次, 仅事件窗口连续 loop). entry phase 复用**事件熔断 pattern**, 持仓 review 默认行为不改 (若期望持仓也改连续 loop = 另开 brainstorm, LLM 调用量级 10x)
 - **立即触发 (effective_now)** 默认 effective_until = +30 min, 也走此机制
 - **PRICE_BREACH / MA_CROSSOVER 触发后**: 进 ENTRY_REVIEW_PHASE 直至窗口过期, **不依赖再次满足条件** (客户 "突破 280 买" 一旦回落 279.99 不应又得等突破)
 - **架构层复用 active_reviews 表** + 加 `review_phase` 列区分 ENTRY/POSITION
@@ -142,49 +145,51 @@
 
 持仓详情页加 **"AI 决策时间线" tab** (跟现有 timeline tab 并列):
 
-#### 显示内容
+#### 显示内容 (2026-05-15 10:01 NZ 用户补充简化)
 
-默认显示 **state-changing 决策**:
-- ENTRY (含失败 entry + entry review loop 中每次临时拒绝)
+**只列开仓 + 加仓 + 减仓决策** (state-changing only, 用户原话"所以不会很多"):
+
+- ENTRY (成功开仓 + 永久拒绝失败)
+- ADD (未来加仓, 待 invariant 10 扩展)
 - PARTIAL_CLOSE (部分平仓)
 - FULL_CLOSE (全平)
-- ADJUST_STOP
-- ADD (未来加仓, 待 invariant 10 扩展)
 
-HOLD 决策默认折叠 ("显示所有" toggle 展开看 — 客户想验证 AI 一直在工作时)。
+**不显示**:
+- HOLD 决策 (噪声) — **不需要 "显示所有" toggle**, 永远不显示
+- entry review loop 中每次临时拒绝 — 用户原话"所以不会很多", 这些跟 HOLD 同噪声级别
+- ADJUST_STOP — invariant 16 客户期权不止损, 实际不会有此类决策
 
-#### 列表卡片
+#### 列表交互 (用户澄清)
 
-时间倒序 + ENTRY sticky 顶部, color-coded:
+- **鼠标划过触发自动滚动**显示卡片
+- **点击 popup** 看详情
+- 时间倒序 + ENTRY sticky 顶部, color-coded:
 
 | 决策类型 | 颜色 |
 |---|---|
 | ENTRY (成功) | 紫色 |
 | ENTRY 失败 / 永久拒绝 | 红色 |
-| ENTRY 临时拒绝 (entry review loop) | 灰色 + "临时" 角标 |
 | ADD (加仓) | 橙色 |
 | PARTIAL_CLOSE | 蓝色 |
 | FULL_CLOSE | 绿色 |
-| ADJUST_STOP | 黄色 |
 
-每张卡片显示: 时间 + 决策类型 + AI confidence + reasoning 一行摘要。
+每张卡片显示: 时间 + 决策类型 + reasoning 一行摘要。
 
-#### 点击 popup 详情
+#### 点击 popup 详情 (2026-05-15 10:01 NZ 用户补充简化)
 
-- **顶部**: 决策时间 + 类型 + AI confidence + ≤600 字完整 reasoning (展开)
-- **中段**: 输入 10 维 Bundle (折叠 JSON viewer, **dim 10 上次 summary 默认展开** 看 thesis 链)
-- **底部**: AI raw output (折叠) + risk gate trace
+用户原话"其他细节应该不用看":
+
+- **AI 决策 summary** + **决策的思考过程** (≤600 字 reasoning + 关键 thesis 点)
+- **不需要**: 输入 10 维 Bundle JSON viewer / AI raw output / risk gate trace
+
+客户看的是**产品视角** (AI 决定了什么 + 为什么), 不是工程师视角 (调试细节)。
 
 #### 跟 timeline tab 区分
 
 - **Timeline tab** (现有) = **业务状态变化** (草稿 / 机会 / 持仓 / 已平仓 + 失败原因) — 客观事件
-- **AI 决策时间线** (新加) = **AI 思考过程** (entry review loop 每次 reasoning + 加减仓决策) — 主观判断
+- **AI 决策时间线** (新加) = **AI 思考过程** (开仓 + 加减仓决策) — 主观判断
 
 两个 tab 并列, 不重叠。
-
-#### 失败机会单也加决策 tab
-
-让客户看到 entry review loop 中每次为什么临时拒绝, 最后为什么超时失败。
 
 ### 影响
 
@@ -236,15 +241,24 @@ HOLD 决策默认折叠 ("显示所有" toggle 展开看 — 客户想验证 AI 
 
 每类故障必须有:
 1. **自动恢复路径** (代码层)
-2. **监控告警** (NZ 凌晨触达 oncall — Slack / 邮件 + 客户可见 banner)
+2. **监控告警** (passive 模式, 见下)
 3. **chaos test 覆盖** (`tests/chaos/` 真实 kill -9 / network drop / docker stop)
+
+#### 告警 passive 模式 (2026-05-15 10:01 NZ 用户补充澄清, 不轰炸)
+
+用户原话: "不是信息轰炸客户不停的提示他, 而是 banner 显示出来就行了。给我 (IT 人员) 发一封邮件说明发生了什么事情, 做提醒就行。"
+
+- **客户端**: 只 banner 显示 (passive — 客户打开 dashboard 才看到). **不做**客户端推送 / Slack 客户群 / 邮件告警客户 (避免轰炸客户)
+- **IT 人员 (项目负责人)**: **summary 邮件**告知发生了什么事情 + 提醒 (不是实时每秒告警). **不做** Slack 实时推送 / SMS / 电话
+- **自动 fallback** (LLM chain 切换 / Pool 重连 / reconcile loop) 仍执行不依赖人工 — 告警只是知会
+
+这样 NZ 凌晨故障 = 系统自动 fallback / reconcile / Pool 重连; IT 人员早上看邮件 summary 知道发生了什么; 客户打开 dashboard 看到 banner 知道系统状态 — **三者都不被打扰**。
 
 #### 新加机制
 
 - **Reconcile loop** (修 silent drift): 每 N min 主动 reqPositions + reqExecutions vs DB 对比 → 自动修复 (orderStatus 丢失典型场景)
 - **LLM fallback chain**: 主 → 备 1 → 备 2, env 切换代码不动
 - **月度 chaos drill**: cron 自动诱导一次故障 + 测量恢复时间 + 写 health 报告
-- **NZ 凌晨告警触达**: 不能"日志写了就完事", 必须客户可见 banner + Slack / 邮件 + 自动 fallback
 
 #### 关联 invariant 升级 (待 spec 后落)
 

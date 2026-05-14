@@ -211,7 +211,8 @@ LLM 输入 = **10 维 Bundle** (维度 1-9 都有值; 维度 10 "上次 summary"
 |---|---|
 | **复用 `active_reviews` 表** | 加 `review_phase` 列区分 `ENTRY` / `POSITION`; APScheduler 扫表逻辑统一, handler 内部按 phase 走不同路径 |
 | **rejection_type 区分** | TEMPORARY → 留在 ACTIVE_MONITORING + INSERT `active_reviews(review_phase=ENTRY, next_review_due_at=now+interval)` / PERMANENT → 立即 FAILED, 不浪费 token |
-| **review interval 自适应窗口长度** | 短窗 (30 min) 自动 1-2 min/次; 长窗 (1 day) 5 min/次默认。具体公式待 spec 阶段实测调整 |
+| **Review 节奏 = 连续 loop** (2026-05-15 10:01 NZ 用户补充澄清, 跟 §5.2 事件熔断窗口同 pattern, **不是**自适应 interval 公式) | 前一次 Agent 2 判断 + 决策实施完成 (HOLD / 加仓 fill / 减仓 fill) → 立即下一轮 review; 周期由 LLM 决策延迟主导 (~15-30s/轮, 可能不到 1 min); 单次 review 全管道 timeout = 25s 超时跳过该轮继续 loop |
+| **持仓 review 5 min 默认不动** | 用户提"仓位管理工人已有此设定"是误解 (现有持仓 review 默认 5 min/次, 仅事件窗口连续 loop). entry phase 复用事件熔断 pattern, 持仓 review 默认行为不改; 若期望持仓也改连续 loop = 另开 brainstorm 议题 (LLM 调用量级影响大) |
 | **立即触发 (effective_now)** | 默认 `effective_until = effective_now + 30 min`, 30 min 内 review 3-5 次 |
 | **条件触发后 (PRICE_BREACH / MA_CROSSOVER)** | 一旦 CONDITION_MET, 进 ENTRY_REVIEW_PHASE 直至窗口过期, **不依赖再次满足条件** (客户 "突破 280 买" 一旦回落 279.99 不应又得等) |
 | **窗口过期** | EXPIRE_OPPORTUNITY handler 转 FAILED (review_phase=ENTRY 的 opp), 失败原因 = "窗口过期未入场" |
@@ -683,15 +684,14 @@ sequenceDiagram
 
 详见 §5.1.1 + §7 状态机更新。时间触发 Agent 2 临时拒绝走 review loop 至窗口过期, 不立即失败。
 
-### D3 — AI 决策时间线 UI (客户可解释性)
+### D3 — AI 决策时间线 UI (客户可解释性, 2026-05-15 10:01 NZ 用户补充简化)
 
 持仓详情页加 "AI 决策时间线" tab (跟现有 timeline tab 并列):
 
-- 默认显示 **state-changing 决策** (ENTRY / PARTIAL_CLOSE / FULL_CLOSE / ADJUST_STOP / 未来 ADD), 含失败 entry + entry review loop 中每次临时拒绝
-- HOLD 默认折叠, "显示所有" toggle 可看 (一持仓一天 10+ HOLD)
-- 点击 popup: 完整 reasoning (≤600 字) + 输入 10 维 Bundle (dim 10 上次 summary 默认展开看 thesis 链) + AI raw output + risk gate trace
+- **只列开仓 + 加仓 + 减仓决策** (state-changing only: ENTRY / ADD / PARTIAL_CLOSE / FULL_CLOSE)。**HOLD / entry review loop 中临时拒绝都不显示** (用户原话"所以不会很多")
+- **列表交互**: **鼠标划过触发自动滚动** + **点击 popup** 看详情
+- **Popup 内容简化** (用户原话"其他细节应该不用看"): **AI 决策 summary + 决策的思考过程** (≤600 字 reasoning + 关键 thesis 点). **不需要** 10 维 Bundle JSON viewer / AI raw output / risk gate trace
 - 跟 timeline tab 区分: **timeline = 业务状态变化 (客观事件)**; **决策 tab = AI 思考过程 (主观判断)**
-- 失败机会单也加决策 tab — 看到 entry review loop 中每次为什么临时拒绝
 - 关联 spec 待 brainstorm: `2026-05-15-decision-disclosure-ui-design.md`
 
 ### D4 — 系统自愈全面化 (system resilience / self-healing)
@@ -707,9 +707,14 @@ sequenceDiagram
 | **active_reviews stale** (worker 死时 review 没 fire) | ❌ | + APScheduler misfire + 重启扫表 catch-up |
 | MarketDataPool 100 stream 配额 / IBC 2FA push timeout / Position adoption | 部分 / 兜底 | LRU evict / 1-2 周实测 / chaos test 补 |
 
-**三件套硬要求**: 每类故障必须有 (1) 自动恢复路径 (2) 监控告警 (NZ 凌晨触达 oncall — Slack/邮件 + 客户可见 banner) (3) chaos test 覆盖 (`tests/chaos/`)。
+**三件套硬要求**: 每类故障必须有 (1) 自动恢复路径 (2) 监控告警 (passive 模式见下) (3) chaos test 覆盖 (`tests/chaos/`)。
 
-**新加机制**: Reconcile loop 修 silent drift / LLM fallback chain / 月度 chaos drill / NZ 凌晨告警触达。
+**告警 passive 模式 (2026-05-15 10:01 NZ 用户补充澄清, 不轰炸)**:
+- **客户端**: 只 banner 显示 (passive — 客户打开 dashboard 才看到). **不做**客户端推送 / Slack 客户群 / 邮件告警客户
+- **IT 人员 (用户)**: **summary 邮件**告知发生了什么事情 + 提醒 (不是实时每秒告警). **不做** Slack 实时推送 / SMS / 电话
+- 自动 fallback (LLM chain 切换 / Pool 重连 / reconcile loop) 仍执行不依赖人工 — 告警只是知会
+
+**新加机制**: Reconcile loop 修 silent drift / LLM fallback chain / 月度 chaos drill。
 
 **关联 invariant 升级** (待 spec 后落): 新加 invariant 25 + 升级 invariant 18。**关联 spec 待 brainstorm**: `2026-05-15-system-resilience-self-healing-design.md`。
 
