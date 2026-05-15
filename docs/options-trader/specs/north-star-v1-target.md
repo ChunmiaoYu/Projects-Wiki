@@ -213,7 +213,7 @@ LLM 输入 = **10 维 Bundle** (维度 1-9 都有值; 维度 10 "上次 summary"
 | **rejection_type 区分** | TEMPORARY → 留在 ACTIVE_MONITORING + INSERT `active_reviews(review_phase=ENTRY, next_review_due_at=now+interval)` / PERMANENT → 立即 FAILED, 不浪费 token |
 | **Review 节奏 = 连续 loop** (2026-05-15 round 3 补充澄清, 跟 §5.2 事件熔断窗口同 pattern, **不是**自适应 interval 公式) | 前一次 Agent 2 判断 + 决策实施完成 (HOLD / 加仓 fill / 减仓 fill) → 立即下一轮 review; 周期由 LLM 决策延迟主导 (~15-30s/轮, 可能不到 1 min); 单次 review 全管道 **timeout = 60s for entry phase** (round 4 用户 ack; vs 事件熔断 25s — entry window 30 min-1 day 不像 ±15 min 紧迫, 给 LLM 充分时间; 真 hang 跳过该轮继续 loop) |
 | **持仓 review 5 min 默认不动** | 用户提"仓位管理工人已有此设定"是误解 (现有持仓 review 默认 5 min/次, 仅事件窗口连续 loop). entry phase 复用事件熔断 pattern, 持仓 review 默认行为不改; 若期望持仓也改连续 loop = 另开 brainstorm 议题 (LLM 调用量级影响大) |
-| **立即触发 (effective_now)** | 默认 `effective_until = effective_now + 30 min`, 30 min 内 review 3-5 次 |
+| **3 语义分支** (2026-05-16 invariant 24 真意 sync) | Agent 1 LLM 解析用户意图后, entry phase 走 3 分支:<br/>**(a) 显式窗口** ("7 天内买 TSLA" / "本周" / "5/20 之前") → `effective_until = 用户给截止`, **进 loop**<br/>**(b) 隐晦表达窗口** ("看情况下单" / "等机会" / "合适时候" / 没明示时间但非立即) → **默认 `effective_until = NOW + 30 天`**, **进 loop**<br/>**(c) 显式立即** ("立即" / "马上" / "现在" / "今天就") → **不进 loop**, Agent 2 一次决策即 EXECUTE 或一次拒绝即 FAILED |
 | **条件触发后 (PRICE_BREACH / MA_CROSSOVER)** | 一旦 CONDITION_MET, 进 ENTRY_REVIEW_PHASE 直至窗口过期, **不依赖再次满足条件** (客户 "突破 280 买" 一旦回落 279.99 不应又得等) |
 | **窗口过期** | EXPIRE_OPPORTUNITY handler 转 FAILED (review_phase=ENTRY 的 opp), 失败原因 = "窗口过期未入场" |
 | **ENTRY_FILLED** | UPDATE active_reviews.review_phase = POSITION, 走仓位管理路径 |

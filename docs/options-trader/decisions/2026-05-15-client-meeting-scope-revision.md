@@ -1,8 +1,9 @@
-# 2026-05-15 客户开会 — v1 范围 4 项变更
+# 2026-05-15 客户开会 — v1 范围 6 项变更 (D1-D6)
 
 > **类型**: 决策记录 (公开 — 客户友好版, 脱敏)
 > **触发**: 客户实际使用场景反馈 → 影响北极星远景 + 中间路径 + 状态机流转 + 系统能力层
 > **关联**: [北极星 §1 第一版目标](../specs/north-star-v1-target.md) + 内部 discussion (项目 repo private, 不外发)
+> **2026-05-16 invariant 24 真意 sync**: D2 entry review loop 真意 = 3 语义分支 (显式窗口 / 隐晦窗口 30 天默认 / 显式立即不进 loop), 详见 D2 关键设计段
 
 ---
 
@@ -11,9 +12,11 @@
 | # | 决策 | 类别 |
 |---|---|---|
 | D1 | 用户表达层条件触发**永久锁死 v1 范围**, 不再"无穷扩展" | scope 收缩 |
-| D2 | **Entry phase review loop** — 时间触发 Agent 2 临时拒绝不立即转失败 | 状态机流转 |
+| D2 | **Entry phase review loop** — 时间触发 Agent 2 临时拒绝不立即转失败 (3 语义分支, 2026-05-16 真意 sync) | 状态机流转 |
 | D3 | **AI 决策时间线 UI** — 持仓详情页加可解释性能力 | 产品能力 (新) |
 | D4 | **系统自愈全面化** — 16 类故障矩阵 + chaos test + NZ 凌晨告警触达 | 系统可靠性 (升级) |
+| D5 | **BundleV2 dim 11 长线指标 21 项** — Agent 2 输入维度从 10 → 12 | 决策输入扩展 |
+| D6 | **BundleV2 dim 12 事件影响 + Agent 3 Event Refresh** — 3 Agent 体系 | 决策输入扩展 + 新 Agent |
 
 ---
 
@@ -115,7 +118,10 @@
   - 周期由 LLM 决策延迟主导 (~15-30s/轮, 可能不到 1 min)
   - 单次 review 全管道 **timeout = 60s for entry phase** (round 4 用户 ack; vs 事件熔断 25s — entry window 30 min - 1 day 不像 ±15 min 紧迫, 给 LLM 充分时间; 真 hang 跳过该轮继续 loop)
 - **持仓 review 5 min 默认不动**: 用户提"仓位管理工人已有此设定"是误解现有行为 (现有持仓 review 默认 5 min/次, 仅事件窗口连续 loop). entry phase 复用**事件熔断 pattern**, 持仓 review 默认行为不改 (若期望持仓也改连续 loop = 另开 brainstorm, LLM 调用量级 10x)
-- **立即触发 (effective_now)** 默认 effective_until = +30 min, 也走此机制
+- **3 语义分支** (2026-05-16 invariant 24 真意 sync — 用户 Tier 1 纠正):
+  - **(a) 显式窗口** ("7 天内买 TSLA" / "本周" / "5/20 之前") → `effective_until = 用户给截止`, **进 loop**
+  - **(b) 隐晦表达窗口** ("看情况下单" / "等机会" / "合适时候" / 没明示时间但非立即) → **默认 `effective_until = NOW + 30 天`**, **进 loop**
+  - **(c) 显式立即** ("立即" / "马上" / "现在" / "今天就") → **不进 loop**, Agent 2 一次决策即 EXECUTE (下单, 撞 IBKR 端拒走 ORDER_FAILED → FAILED) 或一次拒绝即 FAILED
 - **PRICE_BREACH / MA_CROSSOVER 触发后**: 进 ENTRY_REVIEW_PHASE 直至窗口过期, **不依赖再次满足条件** (客户 "突破 280 买" 一旦回落 279.99 不应又得等突破)
 - **架构层复用 active_reviews 表** + 加 `review_phase` 列区分 ENTRY/POSITION
 

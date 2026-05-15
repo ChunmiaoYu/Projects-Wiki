@@ -428,9 +428,23 @@ APScheduler 每 ~10 秒扫一次 `active_reviews where next_review_due_at <= now
 
 `ENTRY_FILLED` handler INSERT；`EXIT_FILLED` 全平 DELETE；事件窗口 UPDATE interval。
 
-### 4.5 Entry phase review loop (2026-05-15 round 4 D2 新加)
+### 4.5 Entry phase review loop (2026-05-15 round 4 D2 新加 / 2026-05-16 真意 sync)
 
 > **2026-05-15 round 4 D2 决定**: Entry phase 加 review loop 跟事件熔断同 pattern (连续 loop 不写死 interval). Agent 2 entry 输出 `rejection_type` 字段 (TEMPORARY/PERMANENT/null). TEMPORARY 留 entry review loop 继续等机会; PERMANENT 立即 FAILED; 窗口过期才 FAILED. 单次 review **timeout = 60s for entry phase** (vs 事件熔断 25s)。仓位管理 review 节奏 5 min 默认**不动** (D2 round 4 用户提"仓位管理工人已有此设定"是误解, 现有 5 min 默认不改; 若期望持仓也改连续 loop = 另开 brainstorm).
+
+#### 4.5.0 3 语义分支 (2026-05-16 用户 Tier 1 纠正后真意 sync)
+
+**Entry phase review loop 仅适用"用户给的窗口期 > 0 的 opp"** — Agent 1 LLM 解析用户意图分 3 语义分支:
+
+| 分支 | 触发短语示例 | effective_until | 是否进 loop |
+|---|---|---|---|
+| **(a) 显式窗口** | "7 天内买 TSLA" / "本周" / "5/20 之前" | 用户给截止时间 | ✅ **进 loop** (TEMPORARY 重试至窗口过期) |
+| **(b) 隐晦表达窗口** | "看情况下单" / "等机会" / "合适时候" (没明示时间但非立即) | **默认 NOW + 30 天** | ✅ **进 loop** (默认 30 天上限) |
+| **(c) 显式立即** | "立即" / "马上" / "现在" / "今天就" | NOW (无窗口) | ❌ **不进 loop**, Agent 2 一次决策即 EXECUTE (下单, 撞 IBKR 端拒走 ORDER_FAILED → FAILED) 或一次拒绝即 FAILED |
+
+> **rejection_type TEMPORARY/PERMANENT 二元区分仅用于 (a)+(b) 窗口期 opp 内追踪** — TEMPORARY 留 loop, PERMANENT 立即 FAILED 不浪费 token. (c) 显式立即不进 loop, 无 review 重试.
+>
+> **PERMANENT 真触发** = Agent 2 才能看到的 data (没期权链 / 账户余额 cap entry size 不够 1 张). **Agent 1 已阻塞条件不到 Agent 2** (用户意图无效 / **symbol 不存在 真验** — F-2026-05-16-AGENT1-SYMBOL-EXISTENCE-CHECK-MISSING / 账户余额 < 用户填金额), 详见 [[Intake 解析器|03_intake.md]] §1.
 
 #### 4.5.1 rejection_type 三值语义
 
