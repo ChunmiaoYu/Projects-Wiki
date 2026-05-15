@@ -50,6 +50,15 @@ Agent 1 在整条流水线里只做两件事：
 - ❌ **不做 AI 风格预审**：旧 `suitability_gate` 字段已删除
 - ❌ **不做时区转换**：原文带"北京时间下午 2 点"就保留原话，server compile 阶段按 symbol 主交易所时区翻译（见 §1.4）
 - ❌ **不做 REQUIRE_CLARIFICATION 词典追问**：词典追问 + 反馈学习系统 2026-04-29 整体删除
+- ❌ **不读取事件影响 / 新闻数据**：Agent 1 入场决策不需要思考新闻；事件影响数据（dim 12）由独立 worker 维护，Agent 2 review 时单独读取做决策（见 §1.5）
+
+### 1.5 Agent 1 system prompt 不改（2026-05-15 round 4 sync）
+
+2026-05-15 客户开会 D6 决策后明确：**Agent 1 system prompt 保持现状不改**，不引入新闻/事件影响相关 prompt 指令。原因：
+
+- 跟 invariant 5 v3 一致：`raw_input_text` 整段传 Agent 2 自决，Agent 1 不前置语义裁剪
+- 跟"信任 LLM 看数据自决"哲学一致（同期权买方权利金有限亏损不强制止损的设计哲学，见项目 `CLAUDE.md` §12）
+- 事件影响数据由 dim 12（10 维 market context bundle 中的事件维度）独立 worker 维护，Agent 2 review 时读取做决策；用户原话："不要改 Agent 1 和 Agent 2 的 prompt，而是单独要 Agent 2 读取数据做决策"
 
 ### 1.2 Validation 4 件事（白名单）
 
@@ -64,18 +73,22 @@ Agent 1 在整条流水线里只做两件事：
 
 所有阻断原因都通过 `submit_blockers_zh: list[str]` 字段以中文短句呈现，客户在前端 IntentTranslationCard 直接看见。
 
-### 1.3 本期支持的 trigger_family（4 类）
+### 1.3 用户表达层支持的 trigger_family（4 类，**永久锁死 v1**）（2026-05-15 round 4 sync）
 
-按项目 `CLAUDE.md` invariant 19，本版本只接 4 类触发，含事件日历的全部跳过：
+按项目 `CLAUDE.md` invariant 19 + 北极星 v1 §5.1.1 / §16，**用户表达层永久锁死 4 类触发条件**（2026-05-15 客户开会 D1 ack 后定）：
 
 | trigger_family | 触发场景 | 必填 sub-fields | runtime_type |
 |---|---|---|---|
 | `ENTRY_TIME` | 立即 / 现在 / 立刻；或没说时间（默认） | `entry_at_zh` | SCHEDULED_TIME |
 | `ENTRY_WINDOW` | 时间窗 / 截止时间 / 财报前一天 | `window_start_zh` + `window_end_zh` | MARKET_SESSION_WINDOW |
-| `PRICE_BREACH` | 突破 / 跌破 / 上穿 X 价位 | `price_level` + `breach_direction` (ABOVE/BELOW) + `bar_interval` | CONDITION_MONITOR |
+| `PRICE_BREACH` | 突破 / 跌破 / 上穿 X 价位（**常数 price level**） | `price_level` + `breach_direction` (ABOVE/BELOW) + `bar_interval` | CONDITION_MONITOR |
 | `MA_CROSSOVER` | 均线交叉（限**单 MA** + **常数 price level**） | `fast_period` + `slow_period` + `bar_interval` + `crossover_direction` (CROSS_UP/CROSS_DOWN) | CONDITION_MONITOR |
 
-**条件类只支持 PRICE_BREACH（常数）+ MA_CROSSOVER（单 MA）**。"突破布林带 / KDJ 金叉 / RSI 超卖"这类多指标组合在本期 schema 内**不被解析**——LLM 默默忽略时由 (b1) 阻断或在 v3 中由 trigger_family 缺失阻断。
+**条件类只支持 PRICE_BREACH（常数）+ MA_CROSSOVER（单 MA）**。"突破布林带 / KDJ 金叉 / RSI 超卖"这类多指标组合在用户表达层 schema 内**不被解析**——LLM 默默忽略时由 (b1) 阻断或在 v3 中由 trigger_family 缺失阻断。
+
+> **2026-05-15 round 4 sync — 永久锁死, 非"本版本"措辞**：客户开会 D1 决策后明确：用户表达层条件触发**永久锁死 v1 范围**（PRICE_BREACH 常数 + 单 MA MA_CROSSOVER），**不再向 UI / Agent 1 schema 扩展**。客户真实使用场景不下"MA5 上穿 MA20"/"IV>50% 且 RSI<30"等复杂条件单，无业务必要扩展。
+>
+> **AI 自主流 Discovery Agent 例外（不开 UI）**：远景 §4 #9 AI 自主交易闭环里的内部 Discovery Agent 仍可使用任意 condition logic（多指标 / 复杂逻辑 / 动态阈值）做候选发现，但**只在系统内部生效**，**不暴露用户表达层 UI / Agent 1 schema**。Discovery 输出直接进 Agent 2 决策，不走 trigger_family 派活通路。
 
 ### 1.4 时区默认按 symbol 主交易所（invariant 15）
 
@@ -1008,7 +1021,7 @@ Sources: [src/options_event_trader/domain/intake_models.py#L41-L101](https://git
 }
 ```
 
-**关键观察**：本期 trigger_family 限 4 类，布林带 / RSI / KDJ 等多指标组合不被解析。客户必须改写为支持的条件（"TSLA 突破 350 时买"等）。
+**关键观察**：用户表达层 trigger_family **永久锁死 4 类**（2026-05-15 round 4 sync, 见 §1.3），布林带 / RSI / KDJ 等多指标组合不被解析。客户必须改写为支持的条件（"TSLA 突破 350 时买"等）。AI 自主流内部 Discovery Agent 可用任意 condition logic 不暴露 UI（远景 §4 #9）。
 
 Sources: [src/options_event_trader/prompts/intake_parser_system_prompt.md#L100-L135](https://github.com/ChunmiaoYu/options_ai_trader/blob/6b3d159/src/options_event_trader/prompts/intake_parser_system_prompt.md#L100-L135), [src/options_event_trader/intake/runtime_planner.py#L498-L546](https://github.com/ChunmiaoYu/options_ai_trader/blob/6b3d159/src/options_event_trader/intake/runtime_planner.py#L498-L546)
 <!-- END:AUTOGEN options_03_intake_examples -->
@@ -1118,7 +1131,7 @@ Sources: [src/options_event_trader/api/routers/intake.py#L1-L22](https://github.
 | 13 | 修改 = 取消原单 + 复制单（嵌套编号） | §8 |
 | 15 | 时间默认按 symbol 主交易所 | §1.4 |
 | ~~17~~ | ~~策略最多 2 腿~~（已废止 2026-04-30） | §2.2 |
-| 19 | 触发类型本版本限 4 种 | §1.3 |
+| 19 | 触发类型**永久锁死 4 种**（用户表达层，2026-05-15 round 4 D1） | §1.3 |
 
 Sources: [CLAUDE.md §5](https://github.com/ChunmiaoYu/options_ai_trader/blob/6b3d159/CLAUDE.md)
 <!-- END:AUTOGEN options_03_intake_invariants_summary -->

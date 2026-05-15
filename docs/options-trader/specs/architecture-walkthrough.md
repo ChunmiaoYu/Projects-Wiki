@@ -37,7 +37,7 @@
 
 ---
 
-## <span class="h-num">2.</span> 系统真实只有 3 类东西
+## <span class="h-num">2.</span> 系统真实只有 3 类东西 (2026-05-15 round 4 sync)
 
 直觉上你可能以为有 "时间工人 / 条件工人 / 信息工人" 3 个独立的人在跑。**实际不是**。
 
@@ -46,13 +46,21 @@
 | # | 是什么 | 实际身份 |
 |---|---|---|
 | 1 | **APScheduler** (排程器) | 时间排程, 唯一会主动产生任务的 |
-| 2 | **8 个 handler 函数** | 取任务 → 处理 → 可能塞新任务 |
+| 2 | **9 个 handler 函数** | 取任务 → 处理 → 可能塞新任务 (2026-05-15 D6: 8→9, 加 Agent 3) |
 | 3 | **4 个 <span class="term-service">Pool/Client</span>** (基础设施) | 屏蔽 <span class="term-service">IBKR</span> 细节, 业务层不感知连接 |
 
 **"工人" 这个词指的是 handler 函数的逻辑分组**, 不是独立进程:
 - "<span class="term-worker">时间工人</span>" = APScheduler 排程逻辑
 - "<span class="term-worker">条件工人</span>" = MarketDataPool 的 tick callback 里的条件计算逻辑
 - "<span class="term-worker">信息工人</span>" = `CONDITION_MET` / `AGENT2_REVIEW_TICK` handler 里拉 bundle + 喂 LLM 的代码
+
+**3 Agent 体系** (2026-05-15 D6 client meeting 新增):
+
+| Agent | 职责 | 触发方式 |
+|---|---|---|
+| **Agent 1 Intake** | 解析客户原话 → opp 草稿 | 客户提交意图时 |
+| **Agent 2 Strategy** | 入场决策 + 入场后 review 循环 | CONDITION_MET / AGENT2_REVIEW_TICK |
+| **Agent 3 Event Refresh** (新) | 维护 BundleV2 dim 12 事件影响 (财报/CPI/FOMC/突发) | AGENT3_EVENT_REFRESH_TICK |
 
 下面跟着场景看, 每个名词什么时候出场。
 
@@ -136,6 +144,30 @@ SYSTEM_WAKE_UP handler 取出任务:
 
 ---
 
+### Step 1.5 — 09:30 ET (开盘瞬间): Agent 3 首次 dim 12 刷新 (2026-05-15 D6 新增)
+
+```
+09:30:00 ET 时间工人塞:
+    event_type = AGENT3_EVENT_REFRESH_TICK
+    payload = {symbol: AAPL}    ← 也可全市场刷, scope 由 spec ship 时定
+    status = PENDING
+
+AGENT3_EVENT_REFRESH_TICK handler 取出任务:
+  1. 调 Agent 3 LLM (新加, 独立 prompt/agent3_event_refresh_system.md)
+     输入: 当前 symbol 监控列表 + 财经日历 + 新闻源
+     输出: dim 12 事件影响 jsonb (财报临近度 / CPI/FOMC 窗口 / 突发情绪)
+  2. 写入 event_calendar 表 + cache 给 Agent 2 pull
+  3. 标任务 status = DONE
+```
+
+**Agent 3 刷新触发** (4 个时机):
+- **开盘瞬间 09:30 ET**: 1 次全市场刷, 抓隔夜新闻 / 盘前事件
+- **盘中每 15 min**: APScheduler 周期排, 滚动更新
+- **入场前阻塞刷**: Agent 2 entry 时 dim 12 鲜度 > 5 min → 同步调 Agent 3 (见 Step 3)
+- **收盘后停**: 16:00 ET SYSTEM_SLEEP 后不再排 (隔夜事件靠次日 09:30 首刷)
+
+---
+
 ### Step 2 — 09:30 ET (盘开): MarketDataPool 收 tick
 
 ```
@@ -170,42 +202,46 @@ callback 函数返回 (不等下游 handler 做完, 立即接下一个 tick)
 
 ---
 
-### Step 3 — Agent 2 入场决策 (CONDITION_MET handler)
+### Step 3 — Agent 2 入场决策 (CONDITION_MET handler, 2026-05-15 round 4 sync)
 
 ```
 CONDITION_MET handler 取出任务 (payload = {opp_id: 5, trigger_price: 280.10}):
 
-  1. 拉 10 维 bundle (拉到的数据后面喂给 LLM):
-     ┌─ MarketDataPool.get_latest(AAPL)              → spot = $280.10 (从 cache 拉)
-     ├─ MarketDataPool.get_latest_iv(AAPL)           → IV = 35%
-     ├─ QueryClient.req_option_chain(AAPL,           → AAPL 285C / 290C 各到期日报价
-     │       expiry="2026-05-15")
-     ├─ AccountSnapshotClient.get_balance()          → 账户可用资金 (cache TTL 5s)
-     ├─ AccountSnapshotClient.get_positions()        → 当前所有持仓
-     ├─ DB: opp #5 的 raw_input_text 整段
-     ├─ 持仓盈亏维度 = null (还没入场)
-     └─ 上次 summary 维度 = null (entry 时无)
+  1. 入场前阻塞检查 dim 12 鲜度 (2026-05-15 D6):
+     若 BundleV2 dim 12 事件维度 stale (> 5 min) → 同步调用 Agent 3 刷新
+     ↑ 阻塞 entry 直到 dim 12 刷新成功, 防"老消息入场"
 
-  2. 喂 Agent 2 LLM (DeepSeek V4-Flash) → ~10 秒
+  2. 拉 12 维 BundleV2 (2026-05-15 D5: 10→12, 新加 dim 11 长线 21 项 + dim 12 事件):
+     ┌─ dim 1-10: 原 10 维 (spot / IV / 期权链 / 账户 / 持仓 / 客户原话 ...)
+     ├─ dim 11: 长线指标 21 项 (估值 / 财务质量 / 增长 / 资金流 / 技术形态 ...)
+     └─ dim 12: 事件影响 (Agent 3 维护, 财报/CPI/FOMC/突发新闻情绪)
+
+  3. 喂 Agent 2 LLM (DeepSeek V4-Flash) → ~10 秒
      LLM 输出: "策略 = LONG_CALL, 行权 285, 到期 2026-05-15, 100 手"
 
-  3. 风险门验证:
+  4. 风险门验证:
      - Layer 1 schema enum: LONG_CALL ∈ 12 种白名单 ✓
      - Layer 2 mapping: LONG_CALL → BULLISH, opp.direction = BULLISH ✓
 
-  4. 往挂单板塞订单:
-     event_type = EXECUTE_DECISION
-     payload = {opp_id: 5,
-                action: "ENTRY",
-                strategy: "LONG_CALL",
-                legs: [{contract: "AAPL_285C_2026-05-15", qty: 100, side: "BUY"}]}
+  5. Entry phase review loop (2026-05-15 D2 新增):
+     若 LLM 返回 rejection_type = TEMPORARY (e.g. "IV 太高等回落 / 报价太宽等收窄"):
+       → INSERT 进 active_reviews 表, review_phase = ENTRY, 60s 后重试
+       → 不塞 EXECUTE_DECISION, 等下次 review tick 重跑入场决策
+     若 rejection_type = PERMANENT (e.g. "方向矛盾 / 不在白名单"):
+       → 标 opp #5 status = FAILED, 不重试
+     若 LLM 同意入场:
+       → 往挂单板塞订单:
+         event_type = EXECUTE_DECISION
+         payload = {opp_id: 5, action: "ENTRY", strategy: "LONG_CALL", ...}
 
-  5. 写 agent2_decisions 表 (审计)
+  6. 写 agent2_decisions 表 (审计)
 
-  6. 标 CONDITION_MET 任务 status = DONE
+  7. 标 CONDITION_MET 任务 status = DONE
 ```
 
 **这就是"<span class="term-worker">信息工人</span>" 逻辑**: 拉 bundle + 喂 LLM + 风险门。**没有信息工人进程**, 这个逻辑就是 `CONDITION_MET` handler 的代码。
+
+**Entry phase review loop 跟事件熔断 pattern 一致** (D2): 临时拒绝时连续 loop (60s 周期), 不是一次性 fail。复用 active_reviews 表加 `review_phase ENUM (ENTRY / POST_ENTRY)` 列区分阶段。
 
 ---
 
@@ -284,13 +320,10 @@ ENTRY_FILLED handler 取出任务:
 ```
 AGENT2_REVIEW_TICK(opp_id=5) handler 取出任务:
 
-  1. 拉 10 维 bundle (这次完整 10 维, 含持仓盈亏 + 上次 summary):
-     ┌─ MarketDataPool.get_latest(AAPL)             → spot 现 $282.50
-     ├─ MarketDataPool.get_latest(AAPL_285C_2026-05-15) → 期权 mid 现 $5.80
-     ├─ AccountSnapshotClient.get_positions()       → 持仓 P&L = +$6,000
-     │                                                  (5.80-5.20)*100*100=6000
-     ├─ DB: 上次 summary 从 agent2_decisions 表拉 → null (这是第一次)
-     └─ ...其他 5 维
+  1. 拉 12 维 BundleV2 (2026-05-15 D5: 10→12, 持仓盈亏 + 上次 summary 仍在 dim 1-10):
+     ┌─ dim 1-10: spot / 期权报价 / 持仓 P&L / 上次 summary / ...
+     ├─ dim 11: 长线指标 21 项 (估值 / 财务质量 / 技术形态 ...)
+     └─ dim 12: 事件影响 (Agent 3 维护, review 时 pull cache, 鲜度 ≤ 15 min)
 
   2. 喂 Agent 2 LLM
      LLM 输出: "HOLD, 离 TP 还远, 继续观察。
@@ -416,7 +449,9 @@ SYSTEM_SLEEP handler:
 
 ---
 
-## <span class="h-num">7.</span> 掉线了怎么办 — 3 类异常 + 应对
+## <span class="h-num">7.</span> 掉线了怎么办 — 3 类异常 + 应对 (简化版, 2026-05-15 D4 spec ship 时扩展为 16 类故障矩阵)
+
+> **2026-05-15 round 4 D4 决策**: 完整故障应对扩展为 **16 类故障矩阵** (network / IBKR / DB / LLM / Pool / Order / Worker / APScheduler / disk / OOM / 时钟漂移 / cert 过期 / Agent 3 失联 / event_calendar 拉源失败 / 部分 fill / margin call 等), 配套 **chaos test** + **reconcile loop** (定期跟 IBKR 对账) + **LLM fallback chain** (DeepSeek → Claude → 兜底 HOLD). 详细矩阵在 D4 spec ship 时落地, 本节保留下面 3 类简化版作骨架。
 
 ### 7.1 MarketDataPool 跟 IBKR 断 (网络抖动 / IB Gateway 异常重启)
 
@@ -455,7 +490,7 @@ workflow_tasks 表:
 
 ---
 
-## <span class="h-num">8.</span> 8 种 event_type 全清单
+## <span class="h-num">8.</span> 9 种 event_type 全清单 (2026-05-15 D6: 8→9)
 
 任务队列里所有任务类型:
 
@@ -464,11 +499,12 @@ workflow_tasks 表:
 | 1 | `SYSTEM_WAKE_UP` | 时间工人 (盘前 30 min, APScheduler + pandas_market_calendars 排) | 全局 (Pool 重连 + 重订阅) | 全局 |
 | 2 | `SYSTEM_SLEEP` | 时间工人 (盘后) | 全局 (停 active_reviews) | 全局 |
 | 3 | `CONDITION_MET(opp_id)` | MarketDataPool tick callback | 业务逻辑 → Agent 2 入场决策 | 单 opp |
-| 4 | `AGENT2_REVIEW_TICK(opp_id)` | 时间工人 (5 min 周期 / 事件窗口连续) | 信息工人 → Agent 2 LLM | 单 opp |
+| 4 | `AGENT2_REVIEW_TICK(opp_id)` | 时间工人 (5 min 周期 / 事件窗口连续 / **entry phase review loop 60s, D2 新增**) | 信息工人 → Agent 2 LLM | 单 opp |
 | 5 | `EXECUTE_DECISION(decision)` | CONDITION_MET / AGENT2_REVIEW_TICK handler (Agent 2 输出后) | OrderClient | 单决策 |
 | 6 | `ENTRY_FILLED(opp_id, order_id)` | OrderClient orderStatus callback (累计 FILLED) | 业务逻辑 → 写持仓 + 启动 review | 单 opp |
 | 7 | `EXIT_FILLED(opp_id, order_id)` | 同上 | 业务逻辑 → 减持仓 / 全平归档 | 单 opp |
 | 8 | `EXPIRE_OPPORTUNITY(opp_id)` | 时间工人 (机会单 effective_until 到点) | 业务逻辑 → 标 FAILED | 单 opp |
+| 9 | `AGENT3_EVENT_REFRESH_TICK(symbol)` (**新, D6**) | 时间工人 (09:30 ET 开盘瞬间 1 次 + 盘中每 15 min) / Agent 2 entry 阻塞调 (鲜度 5 min) | Agent 3 LLM → 更新 dim 12 事件影响 | 单 symbol / 全市场 |
 
 ---
 
@@ -489,8 +525,8 @@ workflow_tasks 表:
 
 | 表 | 用途 | 关键字段 |
 |---|---|---|
-| `workflow_tasks` | 8 种 event_type 任务总队列, 崩溃恢复用 | `task_id`, `event_type`, `payload` jsonb, `status` (PENDING / RUNNING / DONE / FAILED), `created_at`, `picked_at`, `done_at`, `handler_result` jsonb, `retry_count` |
-| `active_reviews` | 5 min review 排程持久化 | `opp_id`, `next_review_due_at`, `review_interval_sec` (300 正常 / 30 事件窗口) |
+| `workflow_tasks` | 9 种 event_type 任务总队列, 崩溃恢复用 (2026-05-15 D6: 8→9) | `task_id`, `event_type`, `payload` jsonb, `status` (PENDING / RUNNING / DONE / FAILED), `created_at`, `picked_at`, `done_at`, `handler_result` jsonb, `retry_count` |
+| `active_reviews` | 5 min review 排程持久化 (entry phase + post-entry phase 共用, 2026-05-15 D2) | `opp_id`, `next_review_due_at`, `review_interval_sec` (300 正常 / 60 entry phase / 30 事件窗口), `review_phase` ENUM (ENTRY / POST_ENTRY, **D2 新增列**) |
 
 ### 9.3 基础设施层状态表 (新增)
 
@@ -504,7 +540,8 @@ workflow_tasks 表:
 | 表 | 用途 | 关键字段 |
 |---|---|---|
 | `agent1_traces` | Agent 1 LLM input/output | `trace_id`, `opp_id`, `raw_input_text`, `parsed_json`, `blockers`, `model_id`, `latency_ms` |
-| `agent2_decisions` | Agent 2 LLM 每次决策 (入场 + review) | `decision_id`, `opp_id`, `bundle_snapshot` jsonb (10 维), `decision` jsonb, `summary_zh` (≤600 字), `model_id`, `latency_ms`, `decided_at` |
+| `agent2_decisions` | Agent 2 LLM 每次决策 (入场 + review) | `decision_id`, `opp_id`, `bundle_snapshot` jsonb (**12 维, BundleV2, 2026-05-15 D5: 10→12**), `decision` jsonb, `summary_zh` (≤600 字), `model_id`, `latency_ms`, `decided_at`, **`rejection_type`** (TEMPORARY / PERMANENT / null, **D2 新增**) |
+| `agent3_traces` (**新, D6**) | Agent 3 Event Refresh LLM input/output | `trace_id`, `symbol`, `event_calendar_snapshot`, `news_sources`, `dim12_output` jsonb, `model_id`, `latency_ms`, `refreshed_at` |
 
 ### 9.5 配置 / Catalog 表 (查表数据, 跟代码解耦)
 
@@ -577,11 +614,14 @@ workflow_tasks 表:
 
 **没有"独立工人 actor"**, 只有:
 - **APScheduler** (排程) +
-- **8 种任务的 handler 函数** +
+- **9 种任务的 handler 函数** (2026-05-15 D6: 8→9, 加 Agent 3) +
 - **4 个基础设施抽象** (Pool/Client) +
+- **3 个 Agent** (Agent 1 Intake / Agent 2 Strategy / Agent 3 Event Refresh, 2026-05-15 D6) +
 - **任务队列** (workflow_tasks 表) 串起来。
 
 业务代码永远不直接碰 IBKR API, 全走 Pool/Client; 工人之间不互相调函数, 全走任务队列。这两条是架构稳定性的核心。
+
+**本文 mermaid 图 (若有) 需 D2/D6 spec ship 后 update 含 Agent 3 + entry review loop 节点**。
 
 ---
 

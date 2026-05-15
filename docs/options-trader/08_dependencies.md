@@ -50,6 +50,7 @@ flowchart TD
 - 数据库已演进到 **29 个 Alembic 迁移**（`0001` → `0029`），不再是历史 wiki 写的"4 次"
 - 业务实体仍是 6 层（Opportunity / Trigger Rule / Strategy Run / Execution Run / Fact Layer / Task Queue），底层基础设施转向 **APScheduler + 8 event_type + 4 Pool/Client**（北极星 §1）
 - Phase B 的 **APScheduler / pandas-market-calendars** 一部分已落 `pyproject.toml`，handler 真实施时会再补 spec 锁定的剩余依赖
+- **2026-05-15 round 4 D5/D6/D4 新增依赖方向**：BundleV2 dim 11 长线指标自算（pandas_ta + scipy.stats）/ BundleV2 dim 12 事件影响走新 Agent 3 worker（复用 Anthropic SDK + web search tool）/ chaos test 套件（toxiproxy + docker tool 留 D4 spec ship 时定）。详见 §11 + §13
 
 ---
 
@@ -78,8 +79,9 @@ flowchart TD
 | `langgraph` | `>= 0.4.0` | LangChain 图工作流；**仅 Agent 1** 6 节点 StateGraph，不扩展（见 memory `project_langgraph_decision`） |
 | `langchain-core` | `>= 0.3.0` | LangChain 核心抽象层（`BaseMessage` / `Runnable` 等） |
 | `PyYAML` | `>= 6.0.2` | YAML 配置解析（`config/*.yml`：execution / risk_limits / symbol_routes / symbol_liquidity） |
-| `pandas-ta-classic` | `>= 0.4.47` | 技术指标库；`pandas-ta` upstream 0.4.x 仅支持 Py 3.12+，VM 是 Py 3.11 ARM64 → 用兼容 fork（API 一致：`import pandas_ta_classic as ta`） |
+| `pandas-ta-classic` | `>= 0.4.47` | 技术指标库；`pandas-ta` upstream 0.4.x 仅支持 Py 3.12+，VM 是 Py 3.11 ARM64 → 用兼容 fork（API 一致：`import pandas_ta_classic as ta`）。**2026-05-15 round 4 D5 复用**：BundleV2 dim 11 长线指标 21 项（RSI / MACD / ATR / Bollinger 等）一行调用 |
 | `pandas-market-calendars` | `>= 4.4.0` | 美股交易日历，APScheduler 调度器在 `xnys` / `xnas` calendar 上对齐入场窗口 |
+| `scipy` | `>= 1.13.0` | **2026-05-15 round 4 D5 新增**：BundleV2 dim 11 用 `scipy.stats.linregress` 算 β / outperform 回归（symbol 对 SPY 60/120/250 trading days），~10-50 ms |
 
 ### 测试依赖（`[project.optional-dependencies] test`）
 
@@ -926,6 +928,138 @@ memory `project_langgraph_decision`：
 
 Sources: memory `project_langgraph_decision`, `docs/superpowers/specs/2026-05-04-worker-visualization-state-machine-design.md`, `pyproject.toml`
 <!-- END:AUTOGEN options_08_dependencies_future_deps -->
+
+---
+
+## 11. BundleV2 dim 11 长线指标依赖（2026-05-15 round 4 D5 sync）
+
+> 来源：北极星 §16 D5 round 4 final ack，spec `docs/options-trader/specs/north-star-v1-target.md` §16
+
+BundleV2 dim 11（长线指标，21 项）数据来源 IBKR `reqHistoricalData(durationStr='2 Y', barSizeSetting='1 day')` 拉 500 根 raw 日 bar + SPY 500 根 benchmark bar，然后由 worker 自己用 **pandas + numpy + pandas_ta + scipy** 算出 21 个指标 ~10-50 ms。
+
+### 计算栈
+
+| 依赖 | 用途 | 状态 |
+|---|---|---|
+| `pandas` | DataFrame 容器（OHLCV bar 时间序列） | 已有（间接依赖） |
+| `numpy` | 数组运算 | 已有（pandas 依赖） |
+| `pandas-ta-classic` | RSI / MACD / ATR / Bollinger 一行调用（纯 Python 替代 ta-lib C 库，易装） | 已在 `pyproject.toml` |
+| `scipy.stats.linregress` | β（symbol vs SPY 回归斜率） / outperform（截距 + R²） | **D5 新增**，`scipy >= 1.13.0` |
+
+**为什么不用 ta-lib**：ta-lib 是 C 库，ARM64 Oracle VM 装编译麻烦；`pandas-ta-classic` 纯 Python fork 同等覆盖、API 一致（`import pandas_ta_classic as ta`），无 wheel 编译压力。
+
+**为什么不用 IBKR 算好的指标**：IBKR `reqHistoricalData` 只返 raw OHLCV bar，不返指标。自算 21 项可控、可解释、可单测、可回测。
+
+### 调用位置（spec 落点）
+
+- `services/long_term_indicators.py`（D5 handler 实施时新建）
+  - `compute_dim11(symbol_bars, spy_bars) -> dict[str, float]` 单一入口，无 IO
+  - 21 项含：RSI(14) / MACD(12,26,9) / ATR(14) / Bollinger(20,2) / MA(20/50/200) / β_60d / β_120d / β_250d / outperform_60d / outperform_120d / outperform_250d / vol_20d / etc.
+- BundleV2 collector 在持仓 review 触发时 fetch + cache 一次（cache 1 trading day TTL）
+
+### requirements.txt 影响
+
+```diff
+# pyproject.toml [project] dependencies 新增
++ "scipy >= 1.13.0",
+```
+
+`pandas` / `numpy` 不需显式声明（`pandas-ta-classic` + `sqlalchemy` 等已传递依赖）。
+
+Sources: spec north-star §16 D5, memory `project_vision_and_north_star.md`
+
+---
+
+## 12. Agent 3 worker — 事件影响 dim 12（2026-05-15 round 4 D6 sync）
+
+> 来源：北极星 §16 D6 round 4 final ack，spec `docs/options-trader/specs/north-star-v1-target.md` §16
+
+BundleV2 dim 12（事件影响）由**新加的 Agent 3** 在专门 worker 跑，**Anthropic SDK web search tool** 实时搜事件。
+
+### Agent 3 worker 定位
+
+| 项 | 内容 |
+|---|---|
+| **角色** | 第 3 个 AI agent（前两个是 Agent 1 intake + Agent 2 strategy） |
+| **职责** | 接 symbol + review 时间窗 → web search 拿宏观/公司事件 → 输出"事件影响" structured JSON 入 BundleV2 dim 12 |
+| **LLM 模型** | 待 D6 spec 锁定（候选 Claude Sonnet 4.6 with web search tool，cost 可接受） |
+| **SDK 复用** | **Anthropic SDK**（已在 `pyproject.toml`，`anthropic >= 0.34.0`），**不新增 SDK 依赖** |
+| **Worker 形态** | 独立 systemd unit `oet-{env}-agent3-worker`，跟 `oet-{env}-worker` 解耦（避免 web search 慢调用阻塞主决策循环） |
+| **触发节奏** | Agent 2 review 触发时按需调（cache 命中跳过）；P0 review trigger 强制刷新 |
+
+### 跟 Agent 1/2 共享 SDK 但独立 instance
+
+- 同一份 `anthropic.AsyncAnthropic` SDK 安装
+- **不同 client instance**（不同 `api_key` 配额池可选 / 不同 `base_url` 路由可选 / 不同 prompt 模板）
+- 配置走 `.env.{env}`：
+  - `ANTHROPIC_AGENT3_API_KEY`（可与 review 共享，也可独立计费追踪）
+  - `ANTHROPIC_AGENT3_MODEL`（默认 `claude-sonnet-4-6`，D6 spec ship 时锁定）
+  - `AGENT3_WEB_SEARCH_MAX_QUERIES_PER_REVIEW`（防 cost 失控）
+
+### Web search tool 用法（Anthropic SDK 内建）
+
+Anthropic SDK 2026 起原生支持 `tools=[{"type": "web_search_20250101", "name": "web_search"}]`，**不需新依赖**。Agent 3 prompt 指导 LLM 何时触发 search、search 几次、提取哪些事件维度（earnings / FDA / Fed / 行业 catalyst etc.）。
+
+### requirements.txt 影响
+
+**无新增**（`anthropic >= 0.34.0` 已有），仅 settings.py 新增 4 字段：
+
+```diff
+# settings.py
++ anthropic_agent3_api_key: str | None = None
++ anthropic_agent3_model: str = "claude-sonnet-4-6"
++ agent3_web_search_max_queries_per_review: int = 3
++ enable_agent3_event_impact: bool = False   # feature flag, D6 ship 后 default True
+```
+
+### 远景：替代为真 NewsCollector
+
+D6 当前方案（Anthropic web search）是**第一版**。远景 §4 #2（北极星 §4）切换到：
+- IBKR Reuters / DJN 真新闻源（API 订阅）
+- 第三方 Polygon / Finnhub / Benzinga news API
+- Agent 3 角色不变，data source 从 LLM web search 换成 structured news feed → 成本更低 + latency 更稳
+
+D6 ship 时 Agent 3 worker config + prompt 设计为可替换 data source（`NewsCollector` 接口），切真新闻源时不动 Agent 3 prompt。
+
+Sources: spec north-star §16 D6, memory `project_vision_and_north_star.md` §4 远景 #2
+
+---
+
+## 13. Chaos test 依赖（2026-05-15 round 4 D4 sync，待 D4 spec ship 时定具体工具）
+
+> 来源：北极星 §16 D4 round 4 final ack
+
+D4 议题 = **chaos test 套件 + 月度 drill**：模拟 IBKR 断连 / DB 网络抖 / LLM API 429 / 容器 OOM 等故障，验证系统恢复韧性。
+
+### 候选工具（D4 spec ship 时锁定）
+
+| 故障类型 | 候选工具 | 用途 |
+|---|---|---|
+| **网络抖动 / latency 注入** | `toxiproxy` + `pytest-toxiproxy` | IBKR Gateway ↔ Worker 之间塞代理，注入 packet drop / latency / bandwidth limit |
+| **容器 kill / restart** | docker CLI（`docker kill` / `docker restart`）或 `testcontainers-python` | 模拟 IB Gateway 容器异常退出 → Worker 重连逻辑验证 |
+| **API rate limit / 429** | `responses` / `pytest-httpx` mock LLM 端点 | LLM 厂商限流降级路径验证 |
+| **DB connection drop** | `pg_terminate_backend` SQL + `psycopg` retry 测试 | PostgreSQL 长连接断开恢复 |
+| **Clock skew** | `freezegun` + `time_fast_forward_factor`（已有） | 时间窗口对齐 / 调度漂移 |
+
+### 实施节奏（D4 spec ship 后）
+
+1. **Phase 1**：toxiproxy + IBKR 断连场景（最高价值，最常见生产故障）
+2. **Phase 2**：docker kill + 容器恢复
+3. **Phase 3**：LLM 429 降级 + 切 fallback model
+4. **Phase 4**：月度 drill cron 跑全套 + 报告归档 docs-hub
+
+### requirements-dev.txt 影响（预测，D4 spec ship 时定）
+
+```diff
+# requirements-dev.txt
++ pytest-toxiproxy >= 0.x   # 待 D4 spec 锁定具体版本
++ testcontainers >= 4.x     # docker 容器编排测试
++ freezegun >= 1.5          # 时间冻结（部分场景已用）
+```
+
+**当前状态**：D4 spec 尚未 ship，工具选型可能调整；本节列候选只为 forward compat 说明，不是已锁定决策。
+
+Sources: 北极星 §16 D4 round 4 ack（D4 spec ship 时本节会重写为锁定版本）
 
 ---
 

@@ -205,6 +205,20 @@ sequenceDiagram
 | `ORDER_SUBMITTED` | Step F 单腿 ACK 但未成交（Submitted/PreSubmitted） | 否 |
 | `COMPLETED` | Step F FILLED + Position 已落 DB | 是 |
 
+#### 失败终态归类（2026-05-15 round 4 sync）
+
+业务层"失败"大状态最终归一到一组语义化失败原因（spec `north-star-v1-target.md` §5.1.1 + §16），不再让用户读 status code。当前 round 4 后失败原因列表：
+
+| 失败原因（业务可见） | 来源 status / 触发路径 |
+|------|------|
+| AI 决策失败 | `COLLECT_FAILED` / `AI_FAILED` / `NO_VIABLE_STRATEGY` |
+| 风控拒绝 | `RISK_BLOCKED` |
+| 下单失败 | `ORDER_FAILED`（入场链穷尽未成交 / IBKR reject） |
+| Agent-2 永久拒绝 | Agent 2 entry 输出 `rejection_type=PERMANENT`（无可行方案 / 用户意图违反市场结构）→ 立即转 FAILED，不进 Step F |
+| **窗口过期未入场** | review_phase=ENTRY 留在 ACTIVE_MONITORING 等下一 review，最终 `EXPIRE_OPPORTUNITY` handler 检测 entry_window 已过期 → FAILED |
+
+注：`AI_FAILED`（基础设施级 LLM 错误）跟 `Agent-2 永久拒绝`（业务级决策"做不了"）是两种不同语义，前者重试可能成功，后者重试也是同样结论。
+
 ### 2.4 Step C 50% 兜底（路径 B 替换的临时红线）
 
 Step C 在编译每个 proposal 后，加一道**临时 50% 红线兜底**（[broker_adapter.py:207-220](https://github.com/ChunmiaoYu/options_ai_trader/blob/6b3d159/src/options_event_trader/services/broker_adapter.py#L207-L220)）：
@@ -237,7 +251,23 @@ if account_value and account_value > 0:
 
 迁移路线图 见 finding `F-2026-05-07-WORKER-HANDLER-IMPLEMENTATION` 与 spec `docs/superpowers/specs/2026-05-06-db-schema-task-queue-design.md`。Phase B 已 ship DB schema（5 新表 + BrokerOrder 加列 + workflow_tasks task_type CHECK），worker handler 真接入是 P0 主线。
 
-Sources: [broker_adapter.py:84-431](https://github.com/ChunmiaoYu/options_ai_trader/blob/6b3d159/src/options_event_trader/services/broker_adapter.py#L84-L431), [worker/loop.py:132-200](https://github.com/ChunmiaoYu/options_ai_trader/blob/6b3d159/src/options_event_trader/worker/loop.py#L132-L200)
+### 2.6 Agent 2 entry → OrderClient 接入：rejection_type 路径（2026-05-15 round 4 sync）
+
+北极星迁移到 8 event_type handler 后，Agent 2 entry 决策不再"无条件进 Step F 下单"。Agent 2 entry 输出附带 `rejection_type` 字段（`TEMPORARY` / `PERMANENT` / `null`），决定后续路径：
+
+| Agent 2 entry 输出 | 后续处理 |
+|---|---|
+| `rejection_type=null`（决策通过 + 给出 proposal） | 走 Step E 风控 → Step F OrderClient 下单 |
+| `rejection_type=TEMPORARY`（当前条件不满足 / 等更好入场点 / IV 待回落） | **不进 OrderClient**。机会单留在 `ACTIVE_MONITORING` + INSERT `active_reviews(review_phase=ENTRY)` 排下次 review，由 `AGENT2_REVIEW_TICK` handler 再决策 |
+| `rejection_type=PERMANENT`（无可行方案 / 用户意图违反市场结构 / 永久拒绝） | 立即转 FAILED（失败原因 = "Agent-2 永久拒绝"），**不**留 review，**不**等窗口过期 |
+
+`active_reviews.review_phase` 列区分 `ENTRY`（尚未入场，仍在等条件）vs `MONITORING`（已入场，在做出场决策）。两个 phase 用同一张表 + 同一 review tick handler，prompt 走 entry / review 两套 prompt file 分别加载。
+
+窗口过期检测：当 `review_phase=ENTRY` 的机会单的 `entry_window.end_at` 已过，`EXPIRE_OPPORTUNITY` handler 把它转 FAILED（失败原因 = "窗口过期未入场"），同步 DELETE `active_reviews` 行。这条路径保证"长期等不到条件的机会单"不会无限挂着占资源。
+
+进 OrderClient 后的逻辑（4 档 escalation / Adaptive Algorithm / split / cancel_fn）跟 round 4 前一致，未改。Round 4 改的只是**进 OrderClient 前的决策路径**。
+
+Sources: [broker_adapter.py:84-431](https://github.com/ChunmiaoYu/options_ai_trader/blob/6b3d159/src/options_event_trader/services/broker_adapter.py#L84-L431), [worker/loop.py:132-200](https://github.com/ChunmiaoYu/options_ai_trader/blob/6b3d159/src/options_event_trader/worker/loop.py#L132-L200), spec `north-star-v1-target.md` §5.1.1 + §16
 
 <!-- END:AUTOGEN options_05_execution_pipeline -->
 
@@ -1222,7 +1252,18 @@ def resubscribe_all(ibkr_client, account, state_map, exit_queue, exit_event):
 
 防的偏离：业务层散落 retry 逻辑 / 早上忘 2FA 没人自动恢复。详见 architecture-walkthrough §7.1。
 
-Sources: [worker/loop.py:73-129](https://github.com/ChunmiaoYu/options_ai_trader/blob/6b3d159/src/options_event_trader/worker/loop.py#L73-L129)
+### 13.4 orderStatus silent drift reconcile（2026-05-15 round 4 sync）
+
+16 类故障矩阵（spec `north-star-v1-target.md` §16）里跟 OrderClient 相关的两条：
+
+| 故障 | 现象 | 修复路径 |
+|---|---|---|
+| `orderStatus` callback 丢失 | IBKR 接受订单成交但回调没推到 client（IB Gateway 偶发 bug / 网络抖动期间丢包）→ DB 仍记 `Submitted` 实际已 `Filled` = silent drift | **reconcile loop**：周期性调 `request_positions()` + `request_open_orders()` ground truth 对比 DB，发现 drift 修 DB 状态（参考已 ship 的 `_resolve_actual_fill` 思路，提到周期性后台任务层） |
+| IBC 2FA timeout | 早上 05:30-06:00 ET IB Gateway 重启需手机 push，超时未点 → 连接彻底断 | IBKR mobile app push 通知用户（`skip_email_on_failure=true` 防邮件 noise），用户点 push 完成 2FA 后 `_ensure_connected` 自动恢复 |
+
+reconcile loop 当前在 `_resolve_actual_fill` 单订单粒度已用（下单完不靠 `orderStatus` 推送而是主动查 `request_positions`），北极星目标是把它升级为后台 handler（`RECONCILE_TICK`）周期性扫所有 in-flight orders + open positions，独立于业务调用栈，专门兜底 silent drift。
+
+Sources: [worker/loop.py:73-129](https://github.com/ChunmiaoYu/options_ai_trader/blob/6b3d159/src/options_event_trader/worker/loop.py#L73-L129), spec `north-star-v1-target.md` §16
 
 <!-- END:AUTOGEN options_05_execution_reconnect -->
 

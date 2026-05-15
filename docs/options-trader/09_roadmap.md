@@ -228,6 +228,10 @@ flowchart LR
 
 > **核心理念**：从 "辅助客户决策" 演进到 "AI 自主从多源信息触发交易，客户监督"。
 > **客户输入是触发交易的来源之一，不是唯一**。
+>
+> **2026-05-15 round 4 客户开会决策影响远景**（D1-D6）：
+> - **D1**：用户表达层触发条件**永久锁 v1 两种**（PRICE_BREACH 常数 + 单 MA MA_CROSSOVER）；复杂条件交给 AI 自主流入口 Discovery Agent (§4 #9) 内部处理，**不暴露 UI**
+> - **D2-D6**：Entry phase review loop / AI 决策时间线 UI / 16 类故障矩阵 / dim 11 长线指标 / dim 12 事件影响 + Agent 3 — **本期 ship**（spec 留下轮 brainstorm，见 §4 #8.1-8.5）
 
 ### 3.1 远景架构图
 
@@ -276,21 +280,19 @@ AUTO_FROM_DISCOVERY  — LLM 综合抓
 
 ### 3.3 远景 5 项子能力（按重要性，不分版本顺序）
 
-#### (1) 触发条件无穷扩展
+#### (1) 触发条件 — 用户层永久锁死 v1 范围（2026-05-15 round 4 sync）
 
-客户能用自然语言描述的任何条件都应支持。具体方向举例：
+**用户表达层（自然语言意图）永久锁 v1 两种**：
+- `PRICE_BREACH`（常数突破）
+- `MA_CROSSOVER`（单 MA 上下穿）
 
-- 隐含波动率条件（IV > 50%）
-- 成交量条件（量能放大 N 倍）
-- 双 MA 交叉（MA5 上穿 MA20）
-- 多条件 and-or 组合
-- 跨标的相对强度（AAPL 跑赢 SPY 5%）
-- 前高 / 前低突破
-- 布林带突破
-- 财报 / 事件锚定（anchor-relative window）
-- 资金流 / 大单异动
-- 期权希腊字母异动（Δ / Γ / IV crush）
-- **等等，无穷扩展**（跟 LLM 自然语言理解能力同步演进，无固定上限）
+**远景 "丰富用户层条件触发" — 永久不做** (2026-05-15 客户开会决策 D1)。原因：
+- 客户用自然语言提交意图的常见场景已被 v1 两种覆盖；客户用 IV/成交量/双 MA/and-or 等复杂条件 = 让客户当量化工程师，违反"客户用自然语言中文表达"主入口
+- 复杂条件交给 **AI 自主流入口** (§4 #9 Discovery Agent) 内部处理，不暴露 UI
+
+**AI 自主流入口 Discovery Agent 内部仍可用任意 condition logic** — Discovery Agent 抓事件 → 生成候选交易意图时，内部用任何复杂条件（IV / 双 MA / 跨标的相对强度 / 期权希腊字母异动等）都可以，**不暴露 UI 给客户填**。这是 D1 的反面：用户表达层锁死，AI 自主流仍可演进。
+
+> 北极星 §4 #6 "触发条件类型扩展" 状态：IDEA → **PERMANENTLY-DEFERRED-USER-LAYER**
 
 #### (2) Agent 2 决策升级
 
@@ -298,6 +300,10 @@ AUTO_FROM_DISCOVERY  — LLM 综合抓
 - **分批下单 + Adaptive 算法**（本期已 ship，见 §2.12）
 - **期权专家 3 维入 bundle** — Implied Move / Realized Vol vs IV / Skew Sentiment
 - **1 min real-time bar** — `marketDataType=1` 实时模式优化
+- **Entry phase review loop**（本期 ship，spec 留下轮 brainstorm；关联 invariant 24，对应 2026-05-15 round 4 D2）
+- **AI 决策时间线 UI**（本期 ship，spec 留下轮；客户可解释性能力，对应 round 4 D3）
+- **BundleV2 dim 11 长线指标 21 项**（本期 ship，spec 留下轮；对应 round 4 D5）— 远景延伸：**Earnings 历史反应**（跟 §4 #3 EventCalendarCollector 一起做）
+- **BundleV2 dim 12 事件影响 + 新加 Agent 3**（本期 ship，spec 留下轮；对应 round 4 D6）— 本期数据源 = Anthropic SDK web search worker；远景延伸：真 NewsCollector（§4 #2 IBKR Reuters/DJN + 第三方）+ newsTicker push 触发紧急刷新
 
 #### (3) 多账户 / 多 LLM 并行
 
@@ -312,8 +318,8 @@ AUTO_FROM_DISCOVERY  — LLM 综合抓
 
 #### (5) 数据基础设施完整化
 
-- 真新闻接入（替代当前 stub）— IBKR Reuters/DJN 或第三方
-- 真事件日历接入（替代当前 stub）
+- **真 NewsCollector**（替代 D6 本期 Anthropic SDK web search worker stub）— §4 #2 IBKR Reuters/DJN + 第三方 API；接入后 newsTicker push 触发 Agent 2 紧急刷新（事件公布瞬间塞 review 任务）
+- **真 EventCalendarCollector**（替代当前 stub）— §4 #3 财报 / FOMC / CPI / 经济数据；驱动 dim 12 事件影响 + Earnings 历史反应（D5 远景延伸）
 - 真 VIX（CBOE Index，替代当前 VIXY ETF 代理；2026-05-08 已修代码 + 用户已订 CBOE Streaming Indexes，等订阅 propagate）
 - **Level 2 / 深度行情** — 看 N 档挂单簿（NASDAQ TotalView 看 10 档买卖盘等）；期权跨多交易所聚合 depth 当前 IBKR 不提供，看 v2 能否接单交易所 depth
 
@@ -322,6 +328,7 @@ AUTO_FROM_DISCOVERY  — LLM 综合抓
 - **HK 市场支持** — 跟美股市场差别太大，不是目标
 - **ADJUST_STOP / 机械止损** — 期权买方天然亏损上限 = 权利金，客户接受亏光；平仓由 Agent 2 LLM 综合判断，不让客户定死止损价位
 - **裸卖空**（SHORT_CALL / SHORT_PUT / SHORT_STRADDLE / SHORT_STRANGLE）— 亏损无底线，永久禁止
+- **用户层触发条件扩展**（2026-05-15 round 4 D1）— 用户用自然语言提交意图的触发条件永久锁 v1 两种（PRICE_BREACH 常数 + 单 MA MA_CROSSOVER）；复杂条件交给 AI 自主流入口 Discovery Agent 内部处理，不暴露 UI
 
 ### 3.5 一句话总结
 
@@ -654,15 +661,20 @@ gantt
 | 3 | EventCalendarCollector（财报 / FOMC / CPI / 经济数据；驱动事件熔断窗口） | IDEA | (5) 数据 + (1) 触发 |
 | 4 | SentimentCollector（社交媒体 / 特朗普 social posts / VIX put-call ratio / Fear-Greed） | IDEA | (5) 数据 |
 | 5 | 真 VIX（CBOE Index 实时，替代 VIXY ETF 代理）+ Level 2 / 深度行情 | IDEA（2026-05-06 加；代码侧 2026-05-08 已修，等订阅 propagate） | (5) 数据 |
-| 6 | 触发条件类型扩展（IV / 成交量 / 双 MA / and-or / 跨标的 / 期权希腊） | IDEA（2026-05-06 加） | (1) 触发条件 |
-| 7 | EVENT_RESPONSE family + anchor-relative window | IDEA，依赖 #2-#4（finding F6） | (1) 触发条件 |
+| 6 | ~~触发条件类型扩展（IV / 成交量 / 双 MA / and-or / 跨标的 / 期权希腊）~~ | **PERMANENTLY-DEFERRED-USER-LAYER**（2026-05-15 round 4 D1）— 用户层永久锁 v1 两种；AI 自主流入口 Discovery Agent (#9) 内部仍可用任意 condition logic 不暴露 UI | (1) 触发条件 |
+| 7 | EVENT_RESPONSE family + anchor-relative window | IDEA，依赖 #2-#4（finding F6） | (1) 触发条件（AI 自主流，非用户层）|
 | 8 | Agent 2 升级剩余（bundle + tool-use / 期权专家 3 维 / 1 min real-time bar） | IDEA | (2) Agent 2 升级 |
-| 9 | **Discovery Agent**（闭环大脑） | IDEA，依赖 #1-#8 | AI 自主流入口 |
+| **8.1** | **Entry phase review loop**（D2，对应 invariant 24） | **SHIPPED 本期 v1**，spec 留下轮 brainstorm（2026-05-15 round 4 sync） | (2) Agent 2 升级 |
+| **8.2** | **AI 决策时间线 UI**（D3，客户可解释性能力） | **SHIPPED 本期 v1**，spec 留下轮（2026-05-15 round 4 sync） | (2) Agent 2 升级 |
+| **8.3** | **16 类故障矩阵 + chaos test + reconcile loop + LLM fallback chain + 月度 drill**（D4，关联 invariant 25 + invariant 18 升级） | **SHIPPED 本期 v1**，spec 留下轮（2026-05-15 round 4 sync） | 基础设施 |
+| **8.4** | **BundleV2 dim 11 长线指标 21 项**（D5） | **SHIPPED 本期 v1**，spec 留下轮（2026-05-15 round 4 sync）；远景延伸：Earnings 历史反应（跟 #3 EventCalendarCollector 一起做） | (2) Agent 2 升级 + (5) 数据 |
+| **8.5** | **BundleV2 dim 12 事件影响 + 新加 Agent 3**（D6） | **SHIPPED 本期 v1**，spec 留下轮（2026-05-15 round 4 sync）；本期数据源 = Anthropic SDK web search worker；远景：真 NewsCollector (#2) + newsTicker push 触发紧急刷新 | (2) Agent 2 升级 + (5) 数据 |
+| 9 | **Discovery Agent**（闭环大脑；AI 自主流入口，内部可用任意 condition logic 不暴露 UI） | IDEA，依赖 #1-#8 | AI 自主流入口 |
 | 10 | 风险预算 + 闭环调度（risk budget / 仓位上限 / Discovery 频率） | IDEA，依赖 #9 | (4) 风险预算 |
 | 11 | 多账户 / 多 LLM 并行（env 切 / paper+live 共存调度），schema 加 user_id/account_id 维度 | IDEA，依赖 #1.5（基础设施层独立，不依赖 #9） | (3) 多账户多 LLM |
 | 12 | 用户介入审批 UI（候选审批 / 调整 sizing / 撤销 / 偶尔人工输入） | IDEA，依赖 #9 | (4) 用户介入 |
 
-### 9.1 关键中间路径里程碑（按依赖图）
+### 9.1 关键中间路径里程碑（按依赖图，2026-05-15 round 4 sync）
 
 ```mermaid
 graph TD
@@ -671,30 +683,54 @@ graph TD
     SP2[#2 NewsCollector<br>IDEA]
     SP3[#3 EventCalendar<br>IDEA]
     SP4[#4 Sentiment<br>IDEA]
-    SP6[#6 触发条件扩展<br>IDEA]
-    SP7[#7 EVENT_RESPONSE<br>IDEA]
+    SP6X[#6 触发条件用户层扩展<br>PERMANENTLY-DEFERRED<br>D1 2026-05-15]
+    SP7[#7 EVENT_RESPONSE<br>IDEA AI 自主流]
     SP8[#8 Agent 2 升级<br>IDEA]
-    SP9[#9 Discovery Agent<br>IDEA]
+    SH81[#8.1 Entry review loop<br>SHIPPED 本期 D2]
+    SH82[#8.2 AI 决策时间线 UI<br>SHIPPED 本期 D3]
+    SH83[#8.3 16 类故障矩阵<br>SHIPPED 本期 D4]
+    SH84[#8.4 dim 11 长线指标<br>SHIPPED 本期 D5]
+    SH85[#8.5 dim 12 事件影响 + Agent 3<br>SHIPPED 本期 D6]
+    SP9[#9 Discovery Agent<br>IDEA AI 自主流入口]
     SP10[#10 风险预算<br>IDEA]
     SP11[#11 多账户多 LLM<br>IDEA]
     SP12[#12 介入 UI<br>IDEA]
 
     SH15 --> SH16
     SH15 --> SP11
+    SH15 --> SH81
+    SH15 --> SH82
+    SH15 --> SH83
+    SH15 --> SH84
+    SH15 --> SH85
     SP2 --> SP7
     SP3 --> SP7
     SP4 --> SP7
+    SH85 -.->|远景接真 NewsCollector| SP2
+    SH84 -.->|远景接 Earnings 历史反应| SP3
     SH16 --> SP9
-    SP6 --> SP9
     SP7 --> SP9
     SP8 --> SP9
     SP9 --> SP10
     SP9 --> SP12
 
     style SH15 fill:#90EE90
+    style SH81 fill:#90EE90
+    style SH82 fill:#90EE90
+    style SH83 fill:#90EE90
+    style SH84 fill:#90EE90
+    style SH85 fill:#90EE90
     style SH16 fill:#FFE4B5
+    style SP6X fill:#D3D3D3
     style SP9 fill:#FFB6C1
 ```
+
+> **图解读**：
+> - 灰色 (#6) = 永久不做（用户层）
+> - 绿色 (#1.5 / #8.1-8.5) = 本期已 ship
+> - 黄色 (#1.6) = spec ship 待 implementation
+> - 粉色 (#9) = 远景核心
+> - 虚线 (8.4 → #3 / 8.5 → #2) = 远景延伸路径，本期用 stub / web search worker，远景接真数据源
 
 <!-- END:AUTOGEN options_09_roadmap_future_directions -->
 

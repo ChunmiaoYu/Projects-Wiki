@@ -737,6 +737,47 @@ def get_agent2_decisions(
 
 `executed` 字段区分「Agent 2 决定要做」和「真的发送到 broker 了」——决策后还有 risk gate / 下单失败等环节。
 
+#### 2.8.8 `/v1/positions/{id}/decisions` — 单持仓 AI 决策合并流（2026-05-15 round 4 sync, D3 客户开会决策）
+
+支撑「持仓详情页 → AI 决策时间线」tab（详见 §12.5）。返回**合并**列表：`strategy_runs` 的 ENTRY 决策 + `agent2_decisions` 的所有 state-changing review（**只包含 ENTRY / ADD / PARTIAL_CLOSE / FULL_CLOSE**，HOLD 与 entry review loop 中临时拒绝的决策一律不返回）。
+
+```python
+@router.get("/v1/positions/{position_id}/decisions")
+def get_position_decisions(
+    position_id: UUID,
+    db: Session = Depends(get_db_dep),
+) -> list[PositionDecisionItem]:
+    """Merged ENTRY + state-changing reviews for one position.
+
+    Order: created_at desc, ENTRY sticky to top (always first row).
+    Excludes: HOLD, entry-loop tentative rejects, risk-gate-only events.
+    """
+```
+
+返回的 `PositionDecisionItem` 字段（**严格瘦身**，只够 popup 用——客户开会原话「其他细节应该不用看」）：
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `decision_id` | UUID | strategy_run.id 或 agent2_decision.id |
+| `decision_type` | str | `ENTRY` / `ADD` / `PARTIAL_CLOSE` / `FULL_CLOSE` |
+| `created_at` | datetime | 决策时间 |
+| `human_summary_zh` | str | 中文一句话总览（≤ 80 字） |
+| `reasoning_zh` | str | AI 思考过程（≤ 600 字 reasoning + 关键 thesis 点） |
+
+**不返回**（客户原话「其他细节应该不用看」明示排除）：
+
+- 10 维 Bundle JSON viewer 内容
+- AI raw output / structured_decision dict 全文
+- risk gate trace
+- prompt_version / token usage / 模型耗时等内部指标
+
+**排序契约**：`ENTRY` 行 sticky 在最顶（无论时间）；其他 review 按 `created_at desc`。前端 list 渲染时不需要重排，直接 map。
+
+**跟现有 endpoint 的边界**：
+
+- `/v1/dashboard/agent2/decisions` 是**全局** Agent 2 决策流（最近 N 条不限 position），给 Dashboard 模块用，含 HOLD
+- `/v1/positions/{id}/decisions` 是**单 position** 的 state-changing 合并视图，给详情页新 tab 用，**不含 HOLD**
+
 <!-- END:AUTOGEN options_07_api_router_dashboard -->
 
 <!-- BEGIN:AUTOGEN options_07_api_router_workers -->
@@ -853,7 +894,7 @@ def system_health(db: Session = Depends(get_db_dep)):
 | `frontend/js/shared/inline-fields.jsx` | 77 | F / FBool / FChips / Section 共享字段组件 |
 | `frontend/js/tabs/queue-tab.jsx` | 148 | 队列 tab（5 sub-tab：DRAFT / OPPORTUNITY / IN_POSITION / CLOSED / FAILED） |
 | `frontend/js/tabs/positions-tab.jsx` | 95 | 持仓全列表 tab（OPEN + CLOSED） |
-| `frontend/js/tabs/detail-tab.jsx` | 149 | 单条机会详情（基础 / 触发 / 风险 / Worker / JSON） |
+| `frontend/js/tabs/detail-tab.jsx` | 149 | 单条机会详情（基础 / 触发 / 风险 / Worker / Timeline / **AI 决策时间线** / JSON）— **AI 决策时间线** tab 2026-05-15 round 4 加 |
 | `frontend/js/tabs/worker-section.jsx` | 118 | 详情页内嵌 worker 视图 |
 
 总行数约 2150 行 jsx + 1481 行 css，比上一代 1549 行单文件 SPA 拆得更细。
@@ -1524,6 +1565,57 @@ return React.createElement(
 ### 12.4 「用户可见性是 hard gate」
 
 跟 invariant 18 配对的 frontend testing gate（invariant 22）：改前端必跑 e2e + Read snapshot PNG + MCP 真 env 验证（详见 [[依赖项与配置|08_dependencies.md]] §测试 gate）。
+
+### 12.5 持仓详情页「AI 决策时间线」tab（2026-05-15 round 4 sync, D3 客户开会决策）
+
+持仓详情页（`detail-tab.jsx`）原有 tab 结构：基础 / 触发 / 风险 / Worker / **Timeline**（业务事件）/ JSON。round 4 加新 tab：
+
+> **AI 决策时间线** — 跟现有 Timeline tab **并列但语义不同**
+
+| Tab | 数据源 | 含义 | 内容性质 |
+|-----|--------|------|---------|
+| Timeline（既有） | `audit_events` 表 `category=PIPELINE` | 业务状态变化里程碑（机会单创建 / 触发命中 / 入场 / 平仓） | **客观事件** |
+| AI 决策时间线（**新**） | `/v1/positions/{id}/decisions` | AI 的 state-changing 决策（开仓 / 加仓 / 减仓 / 平仓） + **思考过程** | **主观判断** |
+
+**列表内容**（强契约，客户原话）：
+
+- **只列**开仓 + 加仓 + 减仓决策（state-changing：`ENTRY` / `ADD` / `PARTIAL_CLOSE` / `FULL_CLOSE`）
+- **不显示** HOLD（继续持有的 review）
+- **不显示** entry review loop 中临时拒绝的决策（review 是 transient 状态，最终落地决策才进 list）
+- **不提供**「显示所有」toggle —— 客户原话「所以不会很多」，故意保持极简
+- 排序：ENTRY 行 sticky 顶部；其他按时间倒序
+
+**列表交互**（client 端纯 hover/click 模型）：
+
+- **鼠标划过行** → 自动滚动该行到视口中央（CSS `scrollIntoView({ behavior: 'smooth', block: 'center' })`）
+- **点击行** → popup 浮层（绝对定位 + click-outside 关闭，不走 modal full-screen）
+
+**Popup 内容**（严格瘦身，对齐 §2.8.8 API 返回字段）：
+
+- AI 决策 summary（`human_summary_zh`，≤ 80 字）
+- **决策的思考过程**（`reasoning_zh`，≤ 600 字 reasoning + 关键 thesis 点）
+
+**Popup 明确不展示**（客户原话「其他细节应该不用看」）：
+
+- 10 维 Bundle JSON viewer
+- AI raw output（structured_decision 全文）
+- risk gate trace
+- token usage / 模型耗时 / prompt_version
+
+**实现指针**：新组件预期 `frontend/js/tabs/ai-decision-timeline-tab.jsx`（spec ship 后入清单），用 `OET.api.get` fetch `/v1/positions/{id}/decisions`，复用 `inline-fields.jsx` 的 Section 组件渲染 popup body 维持视觉语言一致（跟 invariant 13 的 readonly 哲学对齐）。
+
+### 12.6 全局 banner 客户端 passive 模式（2026-05-15 round 4 sync, D4 客户开会决策）
+
+§12.1 描述的全局 banner 行为**保持 passive 模式不变**——round 4 客户开会明确：
+
+- ✓ **banner 在客户打开 dashboard 时显示**（passive 拉模式，不主动推）
+- ✗ **不做**客户端推送通知（不接 Web Push / FCM / APNs）
+- ✗ **不做** Slack 客户群告警（仅工程内部 Slack 可保留）
+- ✗ **不做**邮件告警客户
+
+设计意图：客户体验定位是「来看的时候能看到状态」，不是「随时被打扰」。Worker 心跳挂的 alert 走工程团队 on-call 渠道，客户侧只通过 banner 被动 surface，避免 over-engineer 通知系统 + 客户骚扰。
+
+跟 §12.1 实现一致：`SystemBanner` 组件 30s polling `/api/system/health`，dead 状态显红色 banner。客户**不打开 dashboard 就不会感知**——这是 spec 契约，不是 bug。
 
 <!-- END:AUTOGEN options_07_frontend_worker_visualization -->
 
