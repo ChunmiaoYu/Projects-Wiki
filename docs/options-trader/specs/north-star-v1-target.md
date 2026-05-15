@@ -211,7 +211,7 @@ LLM 输入 = **10 维 Bundle** (维度 1-9 都有值; 维度 10 "上次 summary"
 |---|---|
 | **复用 `active_reviews` 表** | 加 `review_phase` 列区分 `ENTRY` / `POSITION`; APScheduler 扫表逻辑统一, handler 内部按 phase 走不同路径 |
 | **rejection_type 区分** | TEMPORARY → 留在 ACTIVE_MONITORING + INSERT `active_reviews(review_phase=ENTRY, next_review_due_at=now+interval)` / PERMANENT → 立即 FAILED, 不浪费 token |
-| **Review 节奏 = 连续 loop** (2026-05-15 10:01 NZ 用户补充澄清, 跟 §5.2 事件熔断窗口同 pattern, **不是**自适应 interval 公式) | 前一次 Agent 2 判断 + 决策实施完成 (HOLD / 加仓 fill / 减仓 fill) → 立即下一轮 review; 周期由 LLM 决策延迟主导 (~15-30s/轮, 可能不到 1 min); 单次 review 全管道 timeout = 25s 超时跳过该轮继续 loop |
+| **Review 节奏 = 连续 loop** (2026-05-15 round 3 补充澄清, 跟 §5.2 事件熔断窗口同 pattern, **不是**自适应 interval 公式) | 前一次 Agent 2 判断 + 决策实施完成 (HOLD / 加仓 fill / 减仓 fill) → 立即下一轮 review; 周期由 LLM 决策延迟主导 (~15-30s/轮, 可能不到 1 min); 单次 review 全管道 **timeout = 60s for entry phase** (round 4 用户 ack; vs 事件熔断 25s — entry window 30 min-1 day 不像 ±15 min 紧迫, 给 LLM 充分时间; 真 hang 跳过该轮继续 loop) |
 | **持仓 review 5 min 默认不动** | 用户提"仓位管理工人已有此设定"是误解 (现有持仓 review 默认 5 min/次, 仅事件窗口连续 loop). entry phase 复用事件熔断 pattern, 持仓 review 默认行为不改; 若期望持仓也改连续 loop = 另开 brainstorm 议题 (LLM 调用量级影响大) |
 | **立即触发 (effective_now)** | 默认 `effective_until = effective_now + 30 min`, 30 min 内 review 3-5 次 |
 | **条件触发后 (PRICE_BREACH / MA_CROSSOVER)** | 一旦 CONDITION_MET, 进 ENTRY_REVIEW_PHASE 直至窗口过期, **不依赖再次满足条件** (客户 "突破 280 买" 一旦回落 279.99 不应又得等) |
@@ -537,18 +537,19 @@ sequenceDiagram
 
 ---
 
-## <span class="h-num">11.</span> 8 种 event_type (任务队列里所有任务类型)
+## <span class="h-num">11.</span> 9 种 event_type (2026-05-15 round 4 从 8→9 加 Agent 3 事件刷新)
 
 | event_type | 谁触发 | 谁消费 |
 |---|---|---|
 | `SYSTEM_WAKE_UP` | APScheduler (09:00 ET 盘前 30 min) | 全局 (Pool 重连 + 重订阅) |
-| `SYSTEM_SLEEP` | APScheduler (16:00 ET 盘后) | 全局 (停 active_reviews) |
+| `SYSTEM_SLEEP` | APScheduler (16:00 ET 盘后) | 全局 (停 active_reviews + 停 Agent 3 刷新) |
 | `CONDITION_MET(opp_id)` | MarketDataPool tick callback | 业务逻辑 → Agent 2 入场决策 |
-| `AGENT2_REVIEW_TICK(opp_id)` | APScheduler (5 min 周期 / 事件窗口连续 / newsTicker 加塞) | 信息工人逻辑 → Agent 2 LLM |
+| `AGENT2_REVIEW_TICK(opp_id)` | APScheduler (5 min 周期 / 事件窗口连续 / **entry phase 连续 loop** / newsTicker 加塞) | 信息工人逻辑 → Agent 2 LLM |
+| **`AGENT3_EVENT_REFRESH_TICK(symbol)`** ← 新加 | APScheduler (**09:30 ET 开盘瞬间 1 次** + **盘中每 15 min** / Agent 2 入场前阻塞触发若 dim 12 鲜度 > 5 min) | **Agent 3** — web search 摘要写 dim 12 per-symbol + macro 子字段 |
 | `EXECUTE_DECISION(decision)` | CONDITION_MET / AGENT2_REVIEW_TICK handler (Agent 2 输出+风险门通过后) | OrderClient |
-| `ENTRY_FILLED(opp_id, order_id)` | OrderClient orderStatus callback (累计 FILLED) | 业务逻辑 → 写持仓 + 启动 review |
+| `ENTRY_FILLED(opp_id, order_id)` | OrderClient orderStatus callback (累计 FILLED) | 业务逻辑 → 写持仓 + active_reviews.review_phase 改 POSITION |
 | `EXIT_FILLED(opp_id, order_id)` | 同上 | 业务逻辑 → 减持仓 / 全平归档 + 取消订阅 |
-| `EXPIRE_OPPORTUNITY(opp_id)` | APScheduler (`effective_until` 到点) | 业务逻辑 → 标 FAILED |
+| `EXPIRE_OPPORTUNITY(opp_id)` | APScheduler (`effective_until` 到点) | 业务逻辑 → 标 FAILED (含 review_phase=ENTRY 窗口过期未入场) |
 
 **任务队列必持久化** (`workflow_tasks` 表) — 崩溃恢复扫 PENDING/RUNNING > 60s 重做; handler 必 idempotent。
 
@@ -709,14 +710,71 @@ sequenceDiagram
 
 **三件套硬要求**: 每类故障必须有 (1) 自动恢复路径 (2) 监控告警 (passive 模式见下) (3) chaos test 覆盖 (`tests/chaos/`)。
 
-**告警 passive 模式 (2026-05-15 10:01 NZ 用户补充澄清, 不轰炸)**:
+**告警 3 类邮件 (2026-05-15 round 3+4 用户补充, 不轰炸)**:
+
 - **客户端**: 只 banner 显示 (passive — 客户打开 dashboard 才看到). **不做**客户端推送 / Slack 客户群 / 邮件告警客户
-- **IT 人员 (用户)**: **summary 邮件**告知发生了什么事情 + 提醒 (不是实时每秒告警). **不做** Slack 实时推送 / SMS / 电话
-- 自动 fallback (LLM chain 切换 / Pool 重连 / reconcile loop) 仍执行不依赖人工 — 告警只是知会
+- **A. 自愈失败 event-driven 邮件** (给 IT 人员): 系统尝试自愈**失败**才推 (LLM fallback chain 全失败 / Pool 重连 30 min 仍失败 / orderStatus reconcile 失败 等); **60 min 去重窗口** (同一类故障 60 min 内只推一次); **能自愈的不推** (Pool 重连成功 / LLM fallback 切到备用成功 不发邮件)
+- **B. 跳过邮件 (已有 native channel 不重复)**: **#4 IBC daily restart 2FA push timeout** 已有 IBKR app push 一键 approve, **`skip_email_on_failure=true`** 不发邮件; 16 类故障矩阵每类加 flag, 默认 false 仅个别故障标 true
+- **C. 每日 daily summary 邮件** (固定): 美股**收盘后 16:30 ET** (= NZ 09:30 / 08:30 depending DST) 固定推 1 次给 IT 人员, 内容 6 类: (1) 业务 (活跃持仓+开仓/平仓+失败机会单分布) (2) 故障+自愈记录 (即使成功也列) (3) LLM 调用+cost (4) Pool/Connection (uptime+重连+恢复) (5) 关键 KPI (心跳/orderStatus 丢失/NTP/Disk/Memory) (6) 明日前瞻 (earnings/FOMC/CPI 标的列出)
+- **自动 fallback** (LLM chain 切换 / Pool 重连 / reconcile loop) 仍执行不依赖人工 — 邮件只是知会
 
 **新加机制**: Reconcile loop 修 silent drift / LLM fallback chain / 月度 chaos drill。
 
 **关联 invariant 升级** (待 spec 后落): 新加 invariant 25 + 升级 invariant 18。**关联 spec 待 brainstorm**: `2026-05-15-system-resilience-self-healing-design.md`。
+
+### D5 — BundleV2 dim 11 长线指标 21 项 (2026-05-15 round 4 加, 美股期权实战专家审核)
+
+10 维 Bundle → 12 维 BundleV2; **dim 11 = 长线指标** (基于过去 2 年日 OHLCV bar 算出 21 个特征 ~600 tokens, **不送原始 500 根 bar** ~10K tokens):
+
+| 类 | 项 (21 family) |
+|---|---|
+| **A. 长期价格 levels (3)** | 5 时间段 (2y/1y/6m/3m/1m) × (high/low + 日期 + 成交量) + 长期 mean/median/stdev + 当前 vs (high/low/median/mean) of 各时段 % + 当前 2y 分位 |
+| **B. MA trend (3)** | MA20/50/100/200 当前值 + MA 多空排列分类 + 距 MA200 % + MA50 vs MA200 % + **MA200 斜率** (上行/横盘/下行) |
+| **C. 波动率 (4)** | RV 30/90/252 年化 + ATR(14) + ATR% + RV 30d 分位 + **HV/IV ratio** (跟 dim 7 联合, 期权"贵不贵"实战核心指标) |
+| **D. Volume (3)** | DAV 2y + 30d + 30d/2y 比 + 当日 vol 分位 |
+| **E. Momentum (4)** | 1m/3m/6m/12m 涨跌 + RSI(14) + MACD(12,26,9) 状态 + 连续涨跌天数 |
+| **F. 回撤 + 相对 SPY (4)** | MDD 2y + 持续天数 + 恢复天数 + 当前回撤 + outperform SPY 1m/3m/12m + β 2y |
+
+**删除 4 项** (实战不真用): A4 支撑/阻力位 (简单聚类噪声大) / D4 OBV (TA 经典但期权不用) / E5 30d win rate / F5 α (回归模型敏感)。
+
+**数据来源**: IBKR `QueryClient.reqHistoricalData(durationStr='2 Y', barSizeSetting='1 day', whatToShow='TRADES')` 拉标的 + SPY 各 500 根日 bar; 自己用 **pandas + numpy + pandas_ta** 算 21 指标 ~10-50 ms (IBKR API 不直接给聚合指标只给 raw bar)。
+
+**计算时机**: 入场前一次性算; 每日 SYSTEM_WAKE_UP 时重新 query 完整 2 年 + 重算 (50 ms 不是瓶颈)。
+
+**新依赖**: `pandas_ta` (纯 Python 替代 ta-lib C 库) + `scipy.stats.linregress` (β 回归)。
+
+**远景 (依赖 events 数据)**: Earnings 历史反应 (过去 4-8 季度财报后 1/3/5 天涨跌平均) — 跟 §4 #3 EventCalendarCollector 一起做。
+
+**关联 spec 待 brainstorm**: `2026-05-15-long-term-stats-dim11-design.md`
+
+### D6 — BundleV2 dim 12 事件影响 + 新加 Agent 3 (2026-05-15 round 4 加)
+
+**dim 12 = 事件影响** (per-symbol + macro 子字段):
+- **per-symbol scope**: (机会单 ACTIVE_MONITORING) ∪ (持仓单 HOLDING) symbol 合集去重
+- **macro 子字段**: FOMC/CPI/政策等影响所有标的的宏观事件
+- **schema**: `{as_of, next_refresh_due, summary_zh (≤500 字), key_events: [...], upcoming_events: [...], macro_events_summary}`
+
+**新加 Agent 3 (事件刷新 agent)** — 3 Agent 体系 (Agent 1 Intake / Agent 2 Strategy / **Agent 3 Event Refresh**):
+- 实现层: 新加 handler `agent3_event_refresh_handler` + event_type `AGENT3_EVENT_REFRESH_TICK(symbol)` (§11 9 event_type)
+- 跟 Agent 1/2 完全分离, search 慢/失败不影响主决策
+
+**刷新触发**:
+| 时段 | Agent 3 行为 |
+|---|---|
+| 盘前 (09:00-09:30 ET) | 不刷 (不交易不刷) |
+| **开盘瞬间 09:30 ET** | **立即刷一次** (盘外 ~16 hr 缺口需补) |
+| **盘中 (09:45-15:45 ET)** | **每 15 min** (09:45 / 10:00 / .../15:45) |
+| **入场决策前** | **阻塞触发刷** (Agent 2 入场前检查 dim 12 鲜度, >5 min 旧 → 阻塞刷再走决策) |
+| **收盘 16:00 ET** | **停止刷** |
+| **盘外** (16:00-次日 09:30 ET) | 不刷 |
+
+**本期数据源**: **Anthropic SDK web search tool** in dedicated worker (1 LLM 调用做"搜近 24 hr {symbol} 相关新闻 + 摘要 ≤500 字"); 跟 Agent 1/2 完全分离
+
+**远景**: 真 NewsCollector (§4 #2, IBKR Reuters/DJN + 第三方) ship 后真新闻流入 dim 12 + newsTicker push 触发紧急刷新 (复用 §1 newsTicker 加塞机制)
+
+**Agent 1/2 prompt 不改** (信任 LLM 看数据自决, 跟 invariant 5 v3 + 不强制止损同哲学): Agent 2 看 dim 12 数据自然综合"事件影响"判断, 不需 explicit 提醒。
+
+**关联 spec 待 brainstorm**: `2026-05-15-agent3-event-impact-dim12-design.md`
 
 ---
 

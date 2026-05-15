@@ -110,10 +110,10 @@
   - `TEMPORARY` — 流动性临时差 / spread 太宽 / IV 临时偏高 / 价格刚触发等下 confirm
   - `PERMANENT` — 用户意图无效 / 策略根本不应该执行 / symbol 退市 / 风险预算耗尽
   - `null` — 决策通过
-- **Review 节奏 = 连续 loop** (2026-05-15 10:01 NZ 用户补充澄清, 跟北极星 §1 / wiki §5.2 事件熔断窗口同 pattern, **不是**自适应 interval 公式):
+- **Review 节奏 = 连续 loop** (2026-05-15 round 3 补充澄清, 跟北极星 §1 / wiki §5.2 事件熔断窗口同 pattern, **不是**自适应 interval 公式):
   - 前一次 Agent 2 判断 + 决策实施完成 (HOLD / 加仓 fill / 减仓 fill) → **立即下一轮 review**
   - 周期由 LLM 决策延迟主导 (~15-30s/轮, 可能不到 1 min)
-  - 单次 review 全管道 timeout = 25s (跟事件熔断同) 超时跳过该轮继续 loop
+  - 单次 review 全管道 **timeout = 60s for entry phase** (round 4 用户 ack; vs 事件熔断 25s — entry window 30 min - 1 day 不像 ±15 min 紧迫, 给 LLM 充分时间; 真 hang 跳过该轮继续 loop)
 - **持仓 review 5 min 默认不动**: 用户提"仓位管理工人已有此设定"是误解现有行为 (现有持仓 review 默认 5 min/次, 仅事件窗口连续 loop). entry phase 复用**事件熔断 pattern**, 持仓 review 默认行为不改 (若期望持仓也改连续 loop = 另开 brainstorm, LLM 调用量级 10x)
 - **立即触发 (effective_now)** 默认 effective_until = +30 min, 也走此机制
 - **PRICE_BREACH / MA_CROSSOVER 触发后**: 进 ENTRY_REVIEW_PHASE 直至窗口过期, **不依赖再次满足条件** (客户 "突破 280 买" 一旦回落 279.99 不应又得等突破)
@@ -244,15 +244,22 @@
 2. **监控告警** (passive 模式, 见下)
 3. **chaos test 覆盖** (`tests/chaos/` 真实 kill -9 / network drop / docker stop)
 
-#### 告警 passive 模式 (2026-05-15 10:01 NZ 用户补充澄清, 不轰炸)
+#### 告警 3 类邮件 (2026-05-15 round 3+4 用户补充, 不轰炸)
 
-用户原话: "不是信息轰炸客户不停的提示他, 而是 banner 显示出来就行了。给我 (IT 人员) 发一封邮件说明发生了什么事情, 做提醒就行。"
+用户 round 3 原话: "不是信息轰炸客户不停的提示他, 而是 banner 显示出来就行了"
+用户 round 4 原话: "有些失败是不用发邮件提醒的 ... 不要同样的问题一直推送 ... 能自愈的 bug 就不要推送了 ... 每天结收盘后给一份 summary 给 IT 人员, 主要关于运行状态的 summary"
 
-- **客户端**: 只 banner 显示 (passive — 客户打开 dashboard 才看到). **不做**客户端推送 / Slack 客户群 / 邮件告警客户 (避免轰炸客户)
-- **IT 人员 (项目负责人)**: **summary 邮件**告知发生了什么事情 + 提醒 (不是实时每秒告警). **不做** Slack 实时推送 / SMS / 电话
-- **自动 fallback** (LLM chain 切换 / Pool 重连 / reconcile loop) 仍执行不依赖人工 — 告警只是知会
+| 邮件类型 | 触发 | 频率 | 内容 |
+|---|---|---|---|
+| **A. 自愈失败 event-driven** | 系统尝试自愈**失败** (LLM fallback chain 全失败 / Pool 重连 30 min 仍失败 / orderStatus reconcile 失败 / IBC 2FA 5 次推送都没接 等) | 实时, **60 min 去重窗口** | 故障类型 + 时间 + 自愈尝试记录 + 当前系统状态 + 建议人工介入步骤 |
+| **B. 跳过 (已有 native channel 不重复)** | #4 **IBC daily restart 2FA push timeout** — IBKR app push 已通知 | **不发邮件** (`skip_email_on_failure=true`) | — |
+| **C. Daily summary** | 美股**收盘后 16:30 ET** (= NZ 09:30 / 08:30 depending DST, 用户起床看) | 每交易日 1 次 | 6 类: (1) 业务 (持仓+开仓/平仓+失败机会单分布) (2) 故障+自愈记录 (即使成功也列) (3) LLM 调用+cost (4) Pool/Connection (uptime+重连+恢复时间) (5) KPI (心跳/orderStatus 丢失次数/NTP/Disk/Memory) (6) 明日前瞻 (earnings/FOMC/CPI 标的) |
 
-这样 NZ 凌晨故障 = 系统自动 fallback / reconcile / Pool 重连; IT 人员早上看邮件 summary 知道发生了什么; 客户打开 dashboard 看到 banner 知道系统状态 — **三者都不被打扰**。
+**能自愈成功的不实时推送** (Pool 重连成功 / LLM fallback 切到备用成功 / IBC push 通过), 仍在 daily summary 里列。**16 类故障矩阵每类加 `skip_email_on_failure: bool` flag** 默认 false 仅个别故障 (e.g. #4 IBC) 标 true。
+
+**客户端**: 只 banner 显示 (passive — 客户打开 dashboard 才看到). **不做**客户端推送 / Slack 客户群 / 邮件告警客户。
+
+**自动 fallback** (LLM chain 切换 / Pool 重连 / reconcile loop) 仍执行不依赖人工 — 邮件只是知会。NZ 凌晨故障 = 系统自动 fallback; IT 人员早上看 daily summary 知道发生了什么 (失败需介入则前一晚已收 A 类实时邮件); 客户打开 dashboard 看到 banner — **三者都不被打扰**。
 
 #### 新加机制
 
@@ -267,6 +274,126 @@
 
 ---
 
+---
+
+## D5 — BundleV2 dim 11 长线指标 21 项 (2026-05-15 round 4 加)
+
+### 背景
+
+10 维 Bundle 没有"长线 perspective" 维度 (现有 dim 3 仅 1m_1D + 5m_5D + 1d_20D 短中线), Agent 2 决策时缺过去 2 年的标的特征 (高低点 / 趋势 / 波动率 / 动量 / 回撤等)。
+
+### 客户反馈
+
+"10 维要扩充, 加历史数据 — 过去 2 年标的每天的价格以及每天的成交量数据 ... 把 2 年数据发给 AI 有些笨, 不如根据这些数据算出**很多有用的指标**再传给 AI 做决策 ... 既要数据要全面 ... 至少这两年的最高点最低点等等信息都是需要的 ... 这些信息是需要 query 到 2 年的日线自己算出来的, 还是直接 query 到的?"
+
+### 决策
+
+**BundleV1 (10 维) → BundleV2 (12 维)**, 新加 **dim 11 = 长线指标 21 项** (按指标族算, 美股期权实战专家审核):
+
+| 类 | family | 内容 |
+|---|---|---|
+| **A. 长期价格 levels** | 3 | **5 时间段** (2y/1y/6m/3m/1m) × (high/low + 日期 + 成交量) + 长期 (2y) mean/median/stdev + 当前 vs (high/low/median/mean) of 各时段 % + 当前 2y 分位 |
+| **B. MA trend** | 3 | MA20/50/100/200 当前值 + MA 多空排列分类 + 距 MA200 % + MA50 vs MA200 % + **MA200 斜率** (上行/横盘/下行) |
+| **C. 波动率** | 4 | RV 30/90/252 年化 + ATR(14) + ATR% + RV 30d 分位 + **HV/IV ratio** (跟 dim 7 联合, 期权"贵不贵"实战核心) |
+| **D. Volume** | 3 | DAV 2y + 30d + 30d/2y 比 + 当日 vol 分位 |
+| **E. Momentum** | 4 | 1m/3m/6m/12m 涨跌 + RSI(14) + MACD(12,26,9) 状态 + 连续涨跌天数 |
+| **F. 回撤 + 相对 SPY** | 4 | MDD 2y + 持续天数 + 恢复天数 + 当前回撤 + outperform SPY 1m/3m/12m + β 2y |
+
+**删除 4 项** (实战不真用): A4 支撑/阻力位 (简单聚类噪声) / D4 OBV (期权不用) / E5 30d win rate (相关性弱) / F5 α (回归模型敏感)。
+
+**加 1 项**: C4 HV/IV ratio (期权实战核心)。
+
+### 数据来源 (客户问"自己算 vs 直接 query")
+
+**IBKR API 只直接给原始 500 根日 OHLCV bar**, 所有指标都要**自己算**:
+
+| 指标族 | 来源 |
+|---|---|
+| raw 日线 OHLCV (~500 根) | IBKR `QueryClient.reqHistoricalData(durationStr='2 Y', barSizeSetting='1 day', whatToShow='TRADES')` 直接 query |
+| High / Low / Median / Mean / Stdev / Percentile | 自己算 (`numpy.max/min/median/mean/std/percentile`) |
+| MA20/50/100/200 + 斜率 | 自己算 (`pandas.rolling(N).mean()`) |
+| RV / HV / ATR | 自己算 (`pct_change().std()` / `pandas_ta.atr()`) |
+| RSI / MACD | 自己算 (`pandas_ta.rsi()` / `pandas_ta.macd()`) |
+| 回撤 MDD | 自己算 (`cummax`-based) |
+| β / outperform SPY | 自己算 (额外 query SPY 500 根日 bar + `scipy.stats.linregress`) |
+| HV/IV ratio | HV in dim 11 算 + IV from dim 7 现成 + ratio = HV / IV |
+
+**实现**:
+- 2 次 IBKR query per opp: 标的 + SPY 各 500 根日 bar
+- 1 次 Python 计算: pandas + numpy + pandas_ta + scipy, 21 指标 ~10-50 ms
+- **新依赖**: `pandas_ta` (纯 Python 替代 ta-lib C 库) + `scipy.stats.linregress`
+
+**计算时机**:
+- 入场前一次性算 (Agent 2 第一次拉 bundle 时)
+- 每日 SYSTEM_WAKE_UP 时重新 query + 重算 (50 ms 不是瓶颈)
+
+### 远景 (依赖 events 数据)
+
+Earnings 历史反应 (过去 4-8 季度财报后 1/3/5 天涨跌平均) — 跟 §4 #3 EventCalendarCollector 一起做。
+
+---
+
+## D6 — BundleV2 dim 12 事件影响 + 新加 Agent 3 (2026-05-15 round 4 加)
+
+### 背景
+
+现有 10 维 Bundle **没有事件/新闻维度** (Agent 2 决策时不考虑世界上发生的事情)。客户期望系统能自动考虑新闻 + 热点 + 财报 / 政策 / 行业事件等。
+
+### 客户反馈
+
+"system prompt 里面要提醒一句: 判断还要包括最近的新闻和热点的影响 ... 我想要 AI 能自动考虑世界上发生的事情, 因为一个炒期权的人也会关注这个因素, 而且它是重要因素 ... 但是我有个问题, 这回造成 AI 每次都去搜索吗? 还是说我应该在 Agent 1 的时候就让 AI 单独思考这个新闻热点因素然后记录下来, 以后只是把它放在 10 个维度中的事件维度就好了 (现在本来也是空的) ..."
+
+Round 3 修订: "得 Agent 3 专门负责 AI 刷事件 ... 你怎么知道事件什么时候公布? ... 入场前必拉最新一份 ... 盘前 30 min 为什么要刷? 这时候还没开盘 ... 收盘后就不刷了"
+
+### 决策
+
+**dim 12 = 事件影响** (per-symbol + macro 子字段):
+- **per-symbol scope**: (机会单 ACTIVE_MONITORING) ∪ (持仓单 HOLDING) symbol 合集去重
+- **macro 子字段**: FOMC / CPI / 政策等影响所有标的的宏观事件
+- **schema**: `{as_of, next_refresh_due, summary_zh (≤500 字), key_events: [...], upcoming_events: [...], macro_events_summary}`
+
+**新加 Agent 3 (事件刷新 agent)** — Agent 体系扩为 3:
+
+| Agent | 职责 | LLM 调用时机 |
+|---|---|---|
+| **Agent 1 (Intake)** | 中文意图 → 声明式 JSON | 客户提交时 1 次 |
+| **Agent 2 (Strategy)** | 入场决策 + 仓位管理 review | 持续 (entry review loop + 持仓 5 min / 事件熔断 连续 loop) |
+| **Agent 3 (Event Refresh)** ← 新加 | 定期 web search 摘要写 dim 12 per-symbol + macro | 每 15 min + 开盘瞬间 + 入场前阻塞触发 |
+
+**实现层** (跟北极星 §1 范式一致): 新加 1 handler (`agent3_event_refresh_handler`) + 1 event_type (`AGENT3_EVENT_REFRESH_TICK(symbol)`); 北极星 §1 **8 → 9 handler / 8 → 9 event_type**。Agent 3 跟 Agent 1/2 完全分离, search 慢/失败不影响主决策。
+
+### 刷新触发时机 (客户提问回答)
+
+| 时段 | Agent 3 行为 | 理由 |
+|---|---|---|
+| 盘前 (09:00-09:30 ET) | **不刷** | 用户判断: 不交易不需事件数据 |
+| **开盘瞬间 09:30 ET** | **立即刷一次** | 盘外 16 hr 缺口需补, 开盘后第一时间给 09:30-09:45 间可能的 entry 决策用 |
+| 盘中 (09:45-15:45 ET) | **每 15 min** | 比 5 min 节省 API quota, 比 30 min 反应快 |
+| **入场决策前** | **阻塞触发刷** (鲜度门槛 5 min, >5 min 旧则刷, ≤5 min 用现成) | 用户原话: "所谓的入场就是 Agent 2 决策的, 所以当然要事件数据, 要触发刷" |
+| 收盘 16:00 ET | **停止刷** | 用户判断: 收盘后就不刷了 |
+| 盘外 (16:00 ET - 次日 09:30 ET) | 不刷 | — |
+
+**"事件公布瞬间立即刷"** — 用户问"你怎么知道事件什么时候公布?". 实事求是回答:
+- FOMC / CPI 时间精确公开 (跟 §1 事件熔断窗口同源) — 预先 cron 调度可知
+- Earnings 日期公开, 但 pre/post-market + 精确分钟不一定
+- 一般市场新闻 / 政策意外 / 黑天鹅 — **无法预知**, 需事后 newsTicker push 接收
+- 本期 ship **不实现** (没真 newsTicker push 数据源, 留远景 §4 #2 NewsCollector ship 后)
+
+### 本期数据源 vs 远景
+
+| 阶段 | 数据源 |
+|---|---|
+| **本期 ship** | **Anthropic SDK web search tool** in dedicated worker (1 LLM 调用做"搜近 24 hr {symbol} 相关新闻 + 摘要 ≤500 字") |
+| **远景** (§4 #2 NewsCollector ship 后) | 真 IBKR Reuters/DJN + 第三方 (Polygon/Finnhub) + per-source 限流 + 跨源去重 → 真新闻流入 dim 12 + newsTicker push 触发紧急刷新 |
+
+### Agent 1/2 prompt 不改 (用户判断对)
+
+跟 invariant 5 v3 (整段传 Agent 2 自决) + 不强制止损 (LLM 看数据综合判断) **同哲学** — 信任 LLM 看 dim 12 数据自然综合"事件影响"判断, **不需** explicit prompt 提醒"考虑新闻"。加 prompt 教指令反而违反"信任 LLM" (跟 4 腿流动性 hard→soft 反转同理)。
+
+Agent 2 system prompt 已经说"看 10 维 bundle 综合决策", dim 12 加上后 Agent 2 自然读, **不需要改 prompt**。
+
+---
+
 ## 后续工作 (留下轮)
 
 各项决策需独立 spec brainstorm + 五专家评审:
@@ -274,7 +401,9 @@
 - D2: `2026-05-15-entry-review-loop-design.md`
 - D3: `2026-05-15-decision-disclosure-ui-design.md`
 - D4: `2026-05-15-system-resilience-self-healing-design.md`
-- CLAUDE.md invariant 24 / 25 / 18 更新待 spec ship 后
+- **D5: `2026-05-15-long-term-stats-dim11-design.md`** (新加, 21 指标 + IBKR query + pandas_ta 实现)
+- **D6: `2026-05-15-agent3-event-impact-dim12-design.md`** (新加, Agent 3 + handler/event_type + 刷新触发 + web search worker)
+- CLAUDE.md invariant 24 / 25 / 18 + Bundle 维度数描述 更新待 spec ship 后
 
 ---
 
