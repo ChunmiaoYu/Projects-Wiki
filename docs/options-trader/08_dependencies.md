@@ -931,42 +931,106 @@ Sources: memory `project_langgraph_decision`, `docs/superpowers/specs/2026-05-04
 
 ---
 
-## 11. BundleV2 dim 11 长线指标依赖（2026-05-15 round 4 D5 sync）
+## 11. BundleV2 dim 11 长线指标依赖（2026-05-15 round 4 D5 sync, PR1+PR2 ship 真数据）
 
-> 来源：北极星 §16 D5 round 4 final ack，spec `docs/options-trader/specs/north-star-v1-target.md` §16
+> **2026-05-17 D5 PR3 真数据 sync**: PR1 (3800450) + PR2 (9102b4f) 已 ship — alembic 0036 + LongHorizonIndicators 21 项 Pydantic 模型 + bars collector + cache repo + bundle_packager.build_bundle_v2 + SYSTEM_WAKE_UP refresh. 本节字段名/SQL/函数名跟真代码一对一. 详细 21 指标表 + HV/IV ratio 见 [[Agent 2 决策核心|04_strategy.md]] §3.1.1.
 
-BundleV2 dim 11（长线指标，21 项）数据来源 IBKR `reqHistoricalData(durationStr='2 Y', barSizeSetting='1 day')` 拉 500 根 raw 日 bar + SPY 500 根 benchmark bar，然后由 worker 自己用 **pandas + numpy + pandas_ta + scipy** 算出 21 个指标 ~10-50 ms。
+BundleV2 dim 11（长线指标，21 项 6 family）数据来源 IBKR `reqHistoricalData(durationStr='2 Y', barSizeSetting='1 day', whatToShow='TRADES', useRTH=True)` 拉**标的 + SPY 各 ~500 根 raw 日 bar**，然后由 worker 自己用 **pandas + numpy + pandas_ta_classic + scipy.stats.linregress** 算出 21 个指标 ~10-50 ms / symbol。
+
+**为什么把 raw bar 压成 21 指标**: 500 根 raw bar JSON dump ~10K tokens, 21 derived 指标 ~600-700 tokens, 节省 ~95% LLM prompt token (实战意义见 [[Agent 2 决策核心|04_strategy.md]] §3.1.1 客户痛点本质段).
 
 ### 计算栈
 
-| 依赖 | 用途 | 状态 |
-|---|---|---|
-| `pandas` | DataFrame 容器（OHLCV bar 时间序列） | 已有（间接依赖） |
-| `numpy` | 数组运算 | 已有（pandas 依赖） |
-| `pandas-ta-classic` | RSI / MACD / ATR / Bollinger 一行调用（纯 Python 替代 ta-lib C 库，易装） | 已在 `pyproject.toml` |
-| `scipy.stats.linregress` | β（symbol vs SPY 回归斜率） / outperform（截距 + R²） | **D5 新增**，`scipy >= 1.13.0` |
+| 依赖 | 版本约束 | 用途 | 状态 |
+|---|---|---|---|
+| `pandas` | 已传递依赖 | DataFrame 容器 (`_bars_to_df`: list[Bar] → pd.DataFrame index=datetime); rolling window (MA20/50/100/200), pct_change (returns), cummax (MDD) | 已有 |
+| `numpy` | 已传递依赖 | sqrt(252) 年化, sign (连续涨跌), 数组运算 | 已有 |
+| `pandas-ta-classic` | `>= 0.4.47` | RSI(14) / MACD(12,26,9) / ATR(14) 一行调用; `import pandas_ta_classic as ta` (`ta.rsi(close, length=14)` / `ta.macd(close, fast=12, slow=26, signal=9)` / `ta.atr(high, low, close, length=14)`) | 已在 `pyproject.toml` |
+| `scipy.stats.linregress` | `>= 1.13.0` | (a) Family B MA200 斜率 (`linregress(range(20), MA200_last_20d).slope`); (b) Family F β 2y (`linregress(spy_returns, sym_returns).slope` on aligned ≥30 common days) | **D5 PR1 新增**, 已 ship 进 `pyproject.toml` |
 
 **为什么不用 ta-lib**：ta-lib 是 C 库，ARM64 Oracle VM 装编译麻烦；`pandas-ta-classic` 纯 Python fork 同等覆盖、API 一致（`import pandas_ta_classic as ta`），无 wheel 编译压力。
 
 **为什么不用 IBKR 算好的指标**：IBKR `reqHistoricalData` 只返 raw OHLCV bar，不返指标。自算 21 项可控、可解释、可单测、可回测。
 
-### 调用位置（spec 落点）
+### 真 ship 文件 (D5 PR1+PR2)
 
-- `services/long_term_indicators.py`（D5 handler 实施时新建）
-  - `compute_dim11(symbol_bars, spy_bars) -> dict[str, float]` 单一入口，无 IO
-  - 21 项含：RSI(14) / MACD(12,26,9) / ATR(14) / Bollinger(20,2) / MA(20/50/200) / β_60d / β_120d / β_250d / outperform_60d / outperform_120d / outperform_250d / vol_20d / etc.
-- BundleV2 collector 在持仓 review 触发时 fetch + cache 一次（cache 1 trading day TTL）
+| 文件 | 角色 | 关键 API |
+|---|---|---|
+| `src/options_event_trader/services/long_term_indicators.py` | 21 指标计算 + Pydantic 模型 (6 family) | `compute_long_horizon_indicators(symbol, symbol_bars, spy_bars, current_atm_iv) -> LongHorizonIndicators` (raises `LongTermIndicatorsComputeError` on bad input); `_classify_hv_iv_ratio(ratio) -> str` (中文 5 档 interpretation); 6 family 子计算函数 `_compute_period_high_low / _compute_current_vs_levels / _compute_family_b_ma / _compute_family_c_volatility / _compute_family_d_volume / _compute_family_e_momentum / _compute_family_f_drawdown` |
+| `src/options_event_trader/services/long_term_stats_cache.py` | Cache repo + top-level helper + HV/IV 实时重算 | `LongTermStatsCacheRepository(db).{get_by_symbol, is_fresh, upsert, force_invalidate}`; `get_or_compute_long_term_indicators(symbol, db, ibkr_client, current_atm_iv, sleep_sec=0.5) -> LongHorizonIndicators \| None` (graceful None on `IBKRRateLimitError` / `CollectorError` / `LongTermIndicatorsComputeError`); `_recompute_hv_iv_ratio(indicators, current_atm_iv)` (cache 存 RV30, bundle build 用实时 atm_iv 重算 ratio); `cleanup_stale(db, retention_days=30)` (>30 天未触 symbol 清理) |
+| `src/options_event_trader/services/data_collection/collectors/bars.py` | IBKR `reqHistoricalData` 2y daily bar 拉取 | `fetch_long_term_bars(ibkr_client, symbol, sleep_sec=0.5) -> list[Bar]` (async, 调 `ibkr_client.req_historical_bars(duration_str='2 Y', bar_size='1 day', what_to_show='TRADES', use_rth=True)`); `IBKRRateLimitError` (caller catch fallback); heuristic 把 "pacing violation" / "rate limit" / error 162/366 转 `IBKRRateLimitError` |
+| `src/options_event_trader/services/data_collection/bundle_packager.py` | `build_bundle_v2` 集成 dim 11 + dim 12 | `async def build_bundle_v2(opportunity_id, strategy_run_id, db_reader, ibkr_client, subscription_manager, db_session, ...) -> Agent2DataBundleV2`: 调 V1 `pack_bundle` 拿 dim 1-10 → 从 greeks.implied_vol 取 live atm_iv → await `get_or_compute_long_term_indicators` 拿 dim 11 → read dim 12 from Agent 3 snapshots → compose `Agent2DataBundleV2(bundle_version="v2", ...)` |
+| `src/options_event_trader/handlers/system_wake_up.py` | 每日开盘前后台 refresh active symbols cache | active opps + holdings symbol 集合 fan-out, 0.5 s sleep 串行 (IBKR 60 req/10 min quota safety: ~35 symbol × ~3-5s/req ≈ 100-175s 完全在预算内) |
 
-### requirements.txt 影响
+### Cache 表 schema (alembic 0036, ship 2026-05-15)
+
+```python
+# alembic/versions/20260515_0036_long_term_stats_cache.py
+# revision = "20260515_0036"  /  down_revision = "20260515_0035"
+op.create_table(
+    "long_term_stats_cache",
+    sa.Column("id", UUID(as_uuid=True), primary_key=True,
+              server_default=sa.text("gen_random_uuid()")),
+    sa.Column("symbol", sa.String(16), nullable=False),
+    sa.Column("as_of", sa.DateTime(timezone=True), nullable=False),
+    sa.Column("bars_used", sa.Integer, nullable=False),
+    sa.Column("spy_bars_used", sa.Integer, nullable=False),
+    sa.Column("indicators_json", JSONB, nullable=False),         # 完整 LongHorizonIndicators dump
+    sa.Column("hv_iv_ratio_atm_iv", sa.Float, nullable=True),   # 写入时 dim 7 atm_iv 快照 (audit only)
+    sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
+    sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
+    sa.UniqueConstraint("symbol", name="uq_long_term_stats_cache_symbol"),
+)
+op.create_index("ix_long_term_stats_cache_as_of", "long_term_stats_cache", ["as_of"])
+```
+
+**Cache TTL 策略** (`LongTermStatsCacheRepository.is_fresh`): `as_of` 转 ET 时区 date == today ET → fresh (同一美股交易日内有效). 防止服务器 UTC midnight 跨日导致美股交易日内 cache 误判 stale.
+
+**Storage 估**: 每 symbol JSON dump ~700 tokens ≈ 3-4 KB; 30 active symbols ≈ 100 KB. 完全可忽略 (vs raw bar 500 行 × 30 symbol ≈ 数 MB).
+
+**Cleanup**: `cleanup_stale(db, retention_days=30)` 删 >30 天未 touch 的行 (针对已不再 monitor 的 symbol). active symbol 每日 SYSTEM_WAKE_UP refresh 触 `updated_at` 永不过期.
+
+### IBKR quota 安全
+
+| 项 | 数 | 预算 |
+|---|---|---|
+| IBKR `reqHistoricalData` quota | 60 unique req / 10 min | — |
+| 入场前 cache miss (单 symbol + SPY) | 2 req | ~6-10 s 阻塞 |
+| 每日 SYSTEM_WAKE_UP refresh (active opps + holdings ~35 unique symbol) | ~35 req | ~100-175 s 异步, 0.5 s sleep × 35 = 17.5 s 跨 10 min quota 极远 |
+| `fetch_long_term_bars` heuristic | "pacing violation" / "rate limit" / err 162/366 → `IBKRRateLimitError` raise | caller `get_or_compute_long_term_indicators` graceful 返 None |
+
+### Graceful degradation (dim 11 = None 路径)
+
+任一失败 path:
+- `IBKRRateLimitError` (rate limit) → `get_or_compute_long_term_indicators` 返 None
+- `CollectorError` (其他 IBKR 错) → 返 None
+- `LongTermIndicatorsComputeError` (empty bars / bad data) → 返 None
+- IPO < 2y symbol → 部分字段 None (MAValues.ma200 / `returns.12m_pct` / `beta_2y` / `MAAlignment=UNAVAILABLE` / `MASlope=UNAVAILABLE`), bundle 字段仍齐
+- Cache write 失败 (DB transient) → 仍返 indicators (best-effort), 下次 build 再 retry
+
+`build_bundle_v2` 见 dim 11=None 时 `Agent2DataBundleV2.long_horizon_indicators=None`, Agent 2 prompt 按"数据不足"分支处理 (跟 dim 8 NullNewsCollector 同模式). **不阻塞主决策**.
+
+### 跟 Agent 3 dim 12 区分
+
+| 维度 | dim 11 长线指标 | dim 12 事件影响 |
+|---|---|---|
+| **来源** | IBKR `reqHistoricalData` 2y 日 bar + 自算 21 指标 | Anthropic SDK `web_search_20250305` tool 实时搜事件 |
+| **运行者** | bundle_packager 同 worker 进程 (cache hit ~10ms / miss 阻塞 ~6-10s) | **独立 Agent 3 worker** (避免 web search 慢调阻塞主决策) |
+| **数据性质** | derived 量化指标 (RV, MA, β, MDD 等数字) | LLM 解读事件 (earnings/FDA/Fed/政策 structured JSON) |
+| **更新频率** | daily SYSTEM_WAKE_UP (~17 s 后台异步) + 入场前 cache miss 时阻塞算 | 09:30 ET 开盘瞬间 fan-out + 09:45-15:45 ET 每 15 min + 入场前阻塞刷 (>5 min stale) |
+| **cache 表** | `long_term_stats_cache` (per-symbol, 24h TTL by trading day ET) | `event_impact_snapshots` (per-symbol + macro singleton) |
+| **失败降级** | dim11=None, Agent 2 prompt "数据不足" 分支 | dim12=None / stale_fallback, Agent 2 见 `search_quality_signal` 字段判断 |
+
+### requirements.txt 影响 (实际 ship)
 
 ```diff
-# pyproject.toml [project] dependencies 新增
+# pyproject.toml [project] dependencies — D5 PR1 实际 ship
 + "scipy >= 1.13.0",
 ```
 
-`pandas` / `numpy` 不需显式声明（`pandas-ta-classic` + `sqlalchemy` 等已传递依赖）。
+`pandas` / `numpy` 不需显式声明（`pandas-ta-classic` + `sqlalchemy` 等已传递依赖）。`pandas-ta-classic >= 0.4.47` 已在 D5 前就装 (技术指标库复用, 详见 §Python 依赖清单).
 
-Sources: spec north-star §16 D5, memory `project_vision_and_north_star.md`
+Sources: spec `docs/superpowers/specs/2026-05-15-long-term-stats-dim11-design.md`, ship commits 3800450 (PR1) + 9102b4f (PR2), alembic `20260515_0036_long_term_stats_cache.py`, memory `project_vision_and_north_star.md`
 
 ---
 
