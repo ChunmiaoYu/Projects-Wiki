@@ -299,7 +299,7 @@ graph LR
 
 ---
 
-## <span class="h-num">6.</span> 历史决策回放 (记录 why 不消失)
+## <span class="h-num">6.</span> 历史决策回放 (记录 why 不消失) {#h-num6-decision-history}
 
 | 时间 | 决策 | 原因 |
 |---|---|---|

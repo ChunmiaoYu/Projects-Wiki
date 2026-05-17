@@ -383,7 +383,7 @@ gantt
 | **Phase A** Agent 1 + Pipeline | 2026-03-20 → 2026-04-10 | ✅ ship | 7 节点 LangGraph intake + OpenAI Structured Outputs（22 字段 → 后被 v3 瘦身到 3 必填）+ 17 张 DB 表 + Worker 骨架 + S0A 盘中验证 | 早期 commits（详见 [docs/CHANGELOG.md](https://github.com/ChunmiaoYu/options_ai_trader/blob/6b3d159/docs/CHANGELOG.md)） |
 | **Phase A2** Agent 2 framework | 2026-04-21 → 2026-04-23 | ✅ ship | A1.1-A1.14 共 14 sub-task；orchestrator + decision_repository + trace_archiver + R7 emergency close + entry escalation 4 档 | `c8d5e6e` → `6b8e154` |
 | **P0-A** closure 流程修复 | 2026-05-04 | ✅ ship | session 收尾流程加固 + finding ↔ task_plan 双向同步 hook | `ed33efe` + `7274f27` |
-| **P0-B** Worker 显化 + 状态机 v2 | 2026-05-04 | ✅ ship | 14 commits；spec [`2026-05-04-worker-visualization-state-machine-design.md`](specs/2026-05-04-worker-visualization-state-machine-design.md)；invariant 11 v3（4 大状态收敛）+ invariant 18 可观测性补丁 + invariant 20 模型锁 Haiku | `0a4b560` → `64487a9` |
+| **P0-B** Worker 显化 + 状态机 v2 | 2026-05-04 | ✅ ship | 14 commits；spec `2026-05-04-worker-visualization-state-machine-design.md` *(未迁移到 wiki)*；invariant 11 v3（4 大状态收敛）+ invariant 18 可观测性补丁 + invariant 20 模型锁 Haiku | `0a4b560` → `64487a9` |
 | **P0-C** 北极星范式架构 spec | 2026-05-06 | ✅ ship | DB schema spec + 分批下单 spec + 4 Pool/Client + 8 event_type + 12 策略白名单（加 CALENDAR/DIAGONAL）+ wiki [架构 walk-through](specs/architecture-walkthrough.md) ship | spec PRs |
 | **Phase B** DB schema 重构 | 2026-05-06 → 2026-05-07 | ✅ ship | alembic 0024-0029 = 5 张新表（`active_reviews` / `market_data_subscriptions` / `pool_health_log` / `event_calendar` / `strategy_whitelist` seed）+ BrokerOrder 加 3 列 + workflow_tasks task_type CHECK；5 ORM models + WorkflowEventType enum + EVENT_HANDLERS dispatch；44 tests PASS | 22 commits `9413ebd` → `b49aafe` |
 | **Phase C** split_order_dispatcher | 2026-05-08 → ? | spec ship 待 implementation | 拆单阈值 + Adaptive 单腿 + BAG combo 拆腿 + partial leg 90s 硬 timeout R7 应急；估 4-5 hr 工程 | spec [`2026-05-06-split-order-adaptive-design.md`](specs/2026-05-06-split-order-adaptive-design.md) |
@@ -465,14 +465,14 @@ gantt
 |---|---|---|
 | **2026-05-07** | **Phase B Implementation ship** | 通宵 subagent-driven，22 commits `9413ebd` → `b49aafe`；alembic 0024-0029（5 新表 + BrokerOrder 加 3 列 + workflow_tasks task_type CHECK）+ 5 ORM models + WorkflowEventType enum + EVENT_HANDLERS dispatch + 44 tests PASS。Subagent 10 calls 全 APPROVED |
 | **2026-05-06** | **北极星范式架构 spec ship (P0-C)** | DB schema spec 二轮 5 专家 review 4 PASS + 1 P0 修；分批下单 spec 二轮 5 专家全 PASS（4 P0 + 8 P1 修）；4 Pool/Client + 8 event_type + 12 策略白名单（加 CALENDAR/DIAGONAL）+ wiki [架构 walk-through](specs/architecture-walkthrough.md) ship（601 行） |
-| **2026-05-04** | **Worker 显化 + 队列状态机 v2 ship (P0-B)** | spec [`2026-05-04-worker-visualization-state-machine-design.md`](specs/2026-05-04-worker-visualization-state-machine-design.md)；14 commits `0a4b560` → `64487a9`；invariant 11 v3 4 大状态收敛 + 失败 5 原因 + invariant 18 可观测性补丁 + invariant 20 模型锁 Haiku |
+| **2026-05-04** | **Worker 显化 + 队列状态机 v2 ship (P0-B)** | spec `2026-05-04-worker-visualization-state-machine-design.md` *(未迁移到 wiki)*；14 commits `0a4b560` → `64487a9`；invariant 11 v3 4 大状态收敛 + 失败 5 原因 + invariant 18 可观测性补丁 + invariant 20 模型锁 Haiku |
 | **2026-05-04** | **closure 流程修复 ship (P0-A)** | session 收尾流程加固 + finding ↔ task_plan 双向同步 hook + meta-level closure 漏洞修复（4 处）；commits `ed33efe` + `7274f27` |
 | **2026-05-03** | **invariant 5 v3 极致瘦身 ship** | Agent 1 必填字段从 22 → 3（symbol + 触发条件 + direction）；废弃 14 字段（position_spec / take_profit_spec / stop_loss_spec / max_position_pct / direction / target_quantity / preferred_strategies / disallowed_strategies / instrument_scope / risk_style / suitability_gate / user_thesis_zh / partial_fill_policy / intent_type）；Agent 2 看 raw_input_text 自决 |
 | **2026-05-02** | **per-symbol exchange routing ship** | `services/exchange_routing.py` + `config/symbol_routes.yml` 双层数据驱动模块；删 `settings.test_market_override` 全局 toggle 反模式；CLAUDE.md invariant 23 锁定；commit chain `c85bb19` → `05bda37` 7 commits + 23/23 routing tests PASS |
-| **2026-04-30** | **windowed_condition + expire spec ship** | spec [`2026-04-30-windowed-condition-and-expire-design.md`](specs/2026-04-30-windowed-condition-and-expire-design.md)；effective_until / catch-up / fast-forward / Agent 2 两阶段 / 时区按 symbol；选 A 字段扩展非新建 family（catalog 设计哲学正交） |
+| **2026-04-30** | **windowed_condition + expire spec ship** | spec `2026-04-30-windowed-condition-and-expire-design.md` *(未迁移到 wiki)*；effective_until / catch-up / fast-forward / Agent 2 两阶段 / 时区按 symbol；选 A 字段扩展非新建 family（catalog 设计哲学正交） |
 | **2026-04-23** | **Phase A2 Agent 2 framework ship** | A1.1-A1.14 共 14 sub-task；orchestrator + decision_repository + trace_archiver + R7 emergency close + entry escalation 4 档；111+8 DB 新测试 |
 | **2026-04-23** | **Step A-E ship（agentic redesign）** | 数据采集 9 类 + 订阅池 + bundle_packager + LLM 决策层 + Risk Gate v2 + 执行层升级；commits `268d873` → `a909062`；spec [`2026-04-21-agentic-trading-redesign-design.md`](specs/2026-04-21-agentic-trading-redesign-design.md) |
-| **2026-04-19** | **execution-status refactor Release N ship** | 废弃 `ADVICE_ONLY` 模式 → 二分 `SUPPORTED` / `UNSUPPORTED`；direction 可 null；`max_risk_dollars` 必填（注：2026-05-04 用户撤销路径 B，max_risk_dollars 字段 2026-05-03 v3 又被废）；五专家评审 + 11 阶段实施；spec [`2026-04-19-execution-status-refactor-design.md`](specs/2026-04-19-execution-status-refactor-design.md) |
+| **2026-04-19** | **execution-status refactor Release N ship** | 废弃 `ADVICE_ONLY` 模式 → 二分 `SUPPORTED` / `UNSUPPORTED`；direction 可 null；`max_risk_dollars` 必填（注：2026-05-04 用户撤销路径 B，max_risk_dollars 字段 2026-05-03 v3 又被废）；五专家评审 + 11 阶段实施；spec `2026-04-19-execution-status-refactor-design.md` *(未迁移到 wiki)* |
 | **2026-04-10 ~ 2026-04-18** | **Phase 1-9B 基础链路 ship** | Intake + Hardening + S0A 执行 + S0B 安全护栏 + API/前端 + Agent2 + Market Data + Broker Adapter + Pipeline DB + 前端 Strategy/Execution Tab + 止盈止损自动平仓；累计 266+ tests |
 
 <!-- END:AUTOGEN options_09_roadmap_completed -->
@@ -557,7 +557,7 @@ gantt
 
 **备选**：保留必填字段做 schema 校验。**否决**：北极星 5 问 #4 偏离信号 — "把未来要靠数据驱动的字段硬编码成用户必填"。
 
-**实测验证**：Agent 1 解析 COMPLEX case 30s → 15.4s（减 49%），input_tok 2860 → 1738（-39%）。详见 spec [`2026-05-03-agent1-position-schema-radical-simplify-design.md`](specs/2026-05-03-agent1-position-schema-radical-simplify-design.md)。
+**实测验证**：Agent 1 解析 COMPLEX case 30s → 15.4s（减 49%），input_tok 2860 → 1738（-39%）。详见 spec `2026-05-03-agent1-position-schema-radical-simplify-design.md` *(未迁移到 wiki)*。
 
 ### 7.11 2026-05-02 — exchange routing 数据驱动（删 test_market_override 全局 toggle）
 

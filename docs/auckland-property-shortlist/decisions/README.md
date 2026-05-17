@@ -14,7 +14,7 @@
 |---|---|---|---|
 | _(待首条)_ | — | — | — |
 
-> 首版尚无独立决策记录。已 ship 的历史决策汇总在 [北极星 §6 历史决策回放](../specs/north-star-v1-target.md#h-num6-历史决策回放-记录-why-不消失)。
+> 首版尚无独立决策记录。已 ship 的历史决策汇总在 [北极星 §6 历史决策回放](../specs/north-star-v1-target.md#h-num6-decision-history)。
 >
 > 后续单独触发 §18 清单的重大改动 (五专家 brainstorming / invariant 修改 / 架构选型切换 / 数据模型大变更 / 运维策略调整 / 安全规则变更) 在此目录单独成文。
 
