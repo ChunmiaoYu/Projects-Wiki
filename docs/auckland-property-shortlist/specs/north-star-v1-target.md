@@ -2,7 +2,7 @@
 
 !!! warning "决策门禁"
     任何 spec / plan / brainstorming / "是否在 scope" 决策前必先回查此文档,
-    用 [§3 "5 问 cross-check"](#h-num3-decision-5-questions) 过一遍。任一问命中"偏离" → 停下重 brainstorm。
+    用 [§3 "5 问 cross-check"](#h-num3-decision-5-questions) 过一遍。任一问答 否 → 停下重 brainstorm。
 
     决策结果在用户可见回应里显式说一句"此决策与北极星目标关系: X"。
 
@@ -191,6 +191,9 @@ graph LR
 | 5 | **装修 (renovation) 模块** | V3+ | 装修商 marketplace; 报价 RFQ 流程 (图 + 需求 → 多家报价); 进度跟踪 (foundation / framing / cladding / interior / handover); 成本数据库 (per sqm 单价基线) |
 | 6 | **出租 (rental) 模块** | V3+ | Trade Me Rentals / OneRoof Rent API; 租客 screening (背调 / 信用); 租约管理 (NZ RTA 标准条款); 维护工单; 月度收益报表 → **反馈到 V1 评分模型** 校准 `score_rent` |
 | 7 | **商业化能力位** | V1 起预留 forward compat, V2 真实施 | Billing (订阅制, premium tier 解锁 Excel 导出 + 多 candidate 协作 + 邮件通知); 多租户隔离 (data 仍共享 GIS+评分, candidates 私有); Onboarding 自助; Stripe / PayPal 接入 (轻量, 不上完整 ERP) |
+| 8 | **分隔计算器** (subdivision feasibility calculator) | V2 重点 (跟决策闭环紧密绑) | 输入: 地块边界 + Unitary Plan zone + Council overlay; 输出: 可分块数 / 单块最小面积 / max FAR (容积率) / 建筑高度上限 / 后退距离 / 阳光通道. 数据源: Auckland Council Unitary Plan rules + 已有 17GB GIS. **Trade Me 不做**, 经纪/律师收费咨询, APS 自助算 → 决定 offer. 联动: 加 `subdivision_yield` 维度入 V1 `score` |
+| 9 | **选租房 (rental discovery, 租客侧)** | V3+ 远景, 跟 V1 选房 (业主/投资侧) 平行 | 新用户角色 `renter`; 数据源 Trade Me Rentals / OneRoof Rent (跟 V1 不同 endpoint); 富化维度: 通勤时间 (工作地 → 上班分钟数) / 邻居社区 / 学校学区 / 周边设施 (权重不同); 决策状态机轻量: shortlist → 看房 → 签 tenancy agreement → settled |
+| 10 | **综合工具定位** | 框架性 — 贯穿所有版本 | APS 远景不是单点工具, 是 **NZ 房地产领域综合且功能强大的工具集**. **业主侧**: V1 选房 + V2 分隔计算器 + V3+ 贷款/合同/装修/招租. **租客侧**: V3+ 选租房 + 租约管理 / 维护工单. **投资侧**: V1 评分模型 + V3+ rental 月度收益反馈. 多 persona → 多种价值 → 多种付费层 (商业化天然分层) |
 
 ### 2.3 远景反偏离 — 永久不做
 
@@ -203,21 +206,42 @@ graph LR
 
 ### 2.4 一句话总结
 
-**V1 = Auckland 选房 → 决策闭环。V2 = 多用户协作 + 商业化能力位。V3+ = 跨贷款/合同/装修/招租完整买卖周期。永远聚焦 Auckland (远景才看 NZ 其他主流城市), 永远不做跨国 / 不做经纪替代 / 不做数据平台。**
+!!! success "APS 远景 = NZ 房地产领域综合且功能强大的工具集" 
+    多 persona: **业主侧 + 租客侧 + 投资侧**
+
+**节奏**:
+
+- **V1** = Auckland 选房 → candidates 决策闭环 + GIS 富化评分 (Trade Me 没做的护城河)
+- **V2** = 多用户协作 + **分隔计算器** + 商业化能力位 (Billing / 多租户)
+- **V3+** = 跨贷款 / 合同 / 装修 / 招租 (业主侧) + **选租房 / 租约管理** (租客侧) 完整 NZ 房地产工具集
+- **始终聚焦 NZ** (V1 Auckland 主战场, V2+ 才看 NZ 其他主流城市), **永远不跨国 / 不做经纪替代 / 不做 B2B 数据平台**
 
 ---
 
 ## <span class="h-num">3.</span> 决策 5 问 cross-check (每次 spec / plan / brainstorm 必过) {#h-num3-decision-5-questions}
 
-| # | 问题 | 偏离信号 |
-|---|---|---|
-| 1 | **是否服务 Auckland 选房决策闭环?** 这件事跟 "shortlist → candidate → 决策状态机 → (远景) 贷款合同装修招租" 有关吗? | 做 generic real estate 工具 / 做城市无关展示 / 做内容平台 (博客/论坛/教程) / 做 agent 撮合 |
-| 2 | **是否预留商业化能力位?** 不要硬编码"单租户"或"只 admin 看到"的设计, 不要把功能写死给当前 6 用户 | 写死 `user_id=1` / 全局 admin 可见所有 candidate / Pipeline 共享数据没考虑 premium-only / billing hook 完全没留 |
-| 3 | **是否预留远景"跨领域"扩展?** Candidate 状态机要可扩展到 loan/contract/renovation/rental; Property 模型要能挂额外维度 | `Candidate.progress` 用 if-elif 写死 8 值 / Property schema 硬编码"只为选房" / 数据模型没留 jsonb / metadata 扩展位 |
-| 4 | **是否依赖人工 admin 维护?** Pipeline / 用户管理 / 数据更新 / 告警 应自动化, 不"我每天 SSH 一次干 X" | admin 必须每天 SSH 跑命令 / 密码重置必走 SSH / 数据回填必须人工触发 / 用户 onboarding 必须 admin 手动建账号 |
-| 5 | **是否冗余 Trade Me 的能力?** 我们的价值 = 离线 GIS 富化 + 评分 + 决策状态机, **不抓更多数据 / 不重做 Trade Me 已有功能** | 抓房源详情数据 (Trade Me API 已给) / 做地图浏览 / 做房产搜索 (Trade Me 自己就是搜索引擎) / 做房产价格走势图 (没数据优势) |
+!!! info "答题规则"
+    所有 5 问 **是 = 守住北极星**, **否 = 偏离**. 任一问答否 → 停下重 brainstorm.
 
-!!! warning "任一问命中 偏离 → 停下重 brainstorm"
+| # | 问题 (是 = 守住) | 偏离信号 (出现这些 → 是答了"否") |
+|---|---|---|
+| 1 | **这件事是否服务 Auckland 选房决策闭环?** (shortlist → candidate → 决策状态机 → 远景 跨贷款/合同/装修/招租) | 做 generic real estate 工具 / 做城市无关展示 / 做内容平台 (博客/论坛/教程) / 做 agent 撮合 |
+| 2 | **是否预留商业化能力位?** (多角色 admin/premium/viewer / 多租户 candidates 私有 / billing hook) | 写死 `user_id=1` / 全局 admin 可见所有 candidate / Pipeline 共享数据没考虑 premium-only / billing hook 完全没留 |
+| 3 | **是否预留远景"跨领域"扩展?** (Candidate 状态机能加 loan/contract/renovation/rental; Property 模型能挂额外维度) | `Candidate.progress` 用 if-elif 写死 8 值 / Property schema 硬编码"只为选房" / 数据模型没留 jsonb / metadata 扩展位 |
+| 4 | **是否避免依赖人工 admin 手工操作?** (用户管理 / 密码重置 / 数据更新 / 告警 都走 UI/API, 不靠 SSH) | admin 必须每天 SSH 跑命令 / 密码重置必走 SSH / 数据回填必须人工触发 / 用户 onboarding 必须 admin 手动建账号 |
+| 5 | **是否专注我们的护城河, 不重做 Trade Me 已有功能?** APS 价值 = **GIS 富化 + 评分 + 决策状态机** (Trade Me 没做的); 不重做 Trade Me 已做的 = 搜索 / 地图浏览 / 价格走势 / 房源详情抓取 | 抓房源详情数据 (Trade Me API 已给完整) / 做地图浏览页面 / 做房产搜索页 (Trade Me 就是搜索引擎) / 做房产价格走势图 (我们没历史数据) |
+
+!!! tip "5 问内涵速记"
+    - **Q1 = 守闭环** (Auckland 选房, 不偏 generic)
+    - **Q2 = 守商业化** (多角色 + billing 能力位)
+    - **Q3 = 守远景** (跨领域扩展 hook)
+    - **Q4 = 守自动化** (不靠 SSH 手工)
+    - **Q5 = 守差异化** (做 Trade Me 没做的 GIS+评分+决策, 不重做 Trade Me 已做的)
+
+!!! success "Q5 一句话"
+    Trade Me = "**找**房子的地方"; APS = "**判断**这房子值不值得开发/改造 + **跟踪**看完到成交全过程的工具".
+
+!!! warning "任一问答 否 → 停下重 brainstorm"
 
 ---
 
@@ -243,7 +267,9 @@ graph LR
 | 13 | Loan 模块 (银行 API 接入 + pre-approval 模拟) | IDEA — V3+ 远景 | (4) 跨领域 |
 | 14 | Contract 模块 (NZ 标准 S&P 模板 + e-sign) | IDEA — V3+ 远景 | (5) 跨领域 |
 | 15 | Renovation 模块 (装修商 marketplace + 报价 RFQ) | IDEA — V3+ 远景 | (6) 跨领域 |
-| 16 | Rental 模块 (招租 + 租约 + 维护工单 + 月度报表 → 反馈评分模型) | IDEA — V3+ 远景 | (7) 跨领域闭环 |
+| 16 | Rental 模块 — 业主侧 (招租 + 租约 + 维护工单 + 月度报表 → 反馈评分模型) | IDEA — V3+ 远景 | (6) 业主侧 rental |
+| 17 | **分隔计算器** (subdivision feasibility — 输入地块 → 估算可分块数 / 容积率 / 高度上限, 基于 Unitary Plan zone overlay) | IDEA — V2 重点 | (8) 分隔计算器 |
+| 18 | 选租房模块 — 租客侧 (新 `renter` 角色 + Trade Me Rentals 数据源 + 通勤时间富化 + 轻量决策状态机) | IDEA — V3+ 远景 | (9) 租客侧流 |
 
 ---
 
@@ -290,6 +316,8 @@ graph LR
 | 2026-05-17 (PR #14) | admin 简化为 `admin` / `changeme` + login form `type=email→text` | 用户忘原密码 + 浏览器 type=email 拦 username; 商业化未来 SSO username 可能不带 @ (forward compat) |
 | 2026-05-17 | GitHub Secret `APS_VM_IP` 同 commit sync 强制 (跟 memory/docs 同步) | `92d2aa8` 漏改 Secret 导致 deploy `i/o timeout`; 教训进 memory + 进 §5 hook 记录 |
 | 2026-05-17 | **北极星 memory + wiki 首版 ship** | 用户喊"项目规范化"; 跟 options-ai-trader 格式对齐 (§1-§7); APS 比 options 简单 (无 real money/agent/LLM/market hours) 精简到 ~350 行 |
+| 2026-05-17 | **5 问 phrasing 统一为 "是 = 守住"** | 首版 Q1-3 是正向, Q4-5 是反向 (是 = 偏离), 用户 review 时混淆答 Q4 是; 改为全 5 问统一 "是 = 守住, 否 = 偏离" + 加 Q5 一句话 (Trade Me = 找, APS = 判断 + 跟踪) |
+| 2026-05-17 | **远景 §2 扩 — 加分隔计算器 + 选租房 + 综合工具定位** | 用户补充: "有很多 trademe 没有的功能, 未来还要做分隔计算器等等; 这个网站会变成选房选租房等等综合且功能强大的工具". 加 §2 #8 分隔计算器 (V2 重点, 跟决策闭环紧密绑) + #9 选租房 (V3+ 租客侧 persona) + #10 综合工具定位 (业主侧 + 租客侧 + 投资侧多 persona); §4 加 spec #17/#18; 一句话总结从"V1+V2+V3+ 单一闭环"改为"NZ 房地产综合工具集" |
 
 ---
 
