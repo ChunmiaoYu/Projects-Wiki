@@ -73,17 +73,22 @@ graph TB
 
 ### 1.4 Candidate 决策状态机
 
-`Candidate.progress` 已有 enum 8 值, **V1 必做 UI 完整闭环**:
+`Candidate.progress` 已有 enum **10 值** (code: `web/routers/candidates.py::PROGRESS_CHOICES`), **V1 必做完整闭环**:
 
 ```mermaid
 stateDiagram-v2
     [*] --> new: 收藏 listing
     new --> research: 开始调研
-    research --> offered: 出价
-    offered --> negotiating: 谈判
-    negotiating --> contracted: 签合同
+    research --> negotiating: 谈判
+    negotiating --> offered: 出价
+    offered --> contracted: 签合同
     contracted --> settled: 成交
     settled --> [*]
+
+    offered --> offer_failed: 买家拒
+    offered --> offer_cancelled: 主动撤
+    offer_failed --> [*]
+    offer_cancelled --> [*]
 
     new --> watching: 持续观察
     research --> watching
@@ -97,7 +102,10 @@ stateDiagram-v2
     dropped --> [*]
 ```
 
-**V1 缺口**: progress 字段 UI 编辑 + admin 跨用户 aggregate 报表 (e.g. "全 6 用户共 N 个 offered, M 个 contracted")。
+!!! note "model docstring stale"
+    `web/db/models.py:214` 注释只列了 8 值, 实际 10 值. 跟随首个 progress UI spec 实施同 commit 修.
+
+**V1 缺口**: progress UI inline edit 已有 (基础) 但缺 audit trail (谁/何时/from→to/notes) + timeline; admin 跨用户 aggregate 报表 0 实现; 用户 onboarding 0 自助 (全靠 admin SSH).
 
 ### 1.5 3 类数据源
 
@@ -256,9 +264,9 @@ graph LR
 | 2 | Caddy + property.yuanshan1900.com + auto HTTPS | **SHIPPED 2026-04~05** (落地时间无记录, 2026-05-17 才回写文档) | 基础 |
 | 3 | 6 个月归档 + Candidates 解放重复 (`archived_at` 列 + drop `uq_user_listing`) | **SHIPPED-COMMIT-e5273a0 2026-04-23 (PR #13)** | 基础 (数据规模可控) |
 | 4 | Cron TZ 系统级修复 (timedatectl Pacific/Auckland) | **SHIPPED-COMMIT-bed6660 2026-04-23 (PR #13)** | 基础 |
-| 5 | **Candidate 决策状态机 UI** (progress 字段 inline edit + 状态转移时间轴) | **IDEA — V1 必做** | (1) 决策闭环 |
-| 6 | **Admin 多用户 aggregate 报表** (跨 6 user 决策状态 rollup, e.g. "全用户共 N offered / M contracted") | **IDEA — V1 必做** | (1) 决策闭环 |
-| 7 | **用户 onboarding 自助** (signup + email verify + 密码自助重置, 减少 admin SSH 干预) | **IDEA — V1 必做** | (4) 反"依赖人工 admin" |
+| 5 | **Candidate 决策状态机 UI** (audit trail + 状态时间轴 + transition notes — V1 真缺口, inline edit 已存在) | **SPEC-DRAFTED 2026-05-17** ([spec](2026-05-17-candidate-state-machine-ui-design.md), 325 行) | (1) 决策闭环 |
+| 6 | **Admin 多用户 aggregate 报表** (跨 user × progress matrix + drill-down, 复用现有 candidates API) | **SPEC-DRAFTED 2026-05-17** ([spec](2026-05-17-admin-aggregate-report-design.md), 326 行, 无 schema 变更) | (1) 决策闭环 |
+| 7 | **用户 onboarding 自助** (signup + email verify + 密码自助重置, 解 SSH 依赖痛点) | **SPEC-DRAFTED 2026-05-17** ([spec](2026-05-17-user-onboarding-self-service-design.md), 544 行, **email provider A/B/C 待用户决**) | (4) 反"依赖人工 admin" |
 | 8 | 邮件通知基础 (candidate 状态变更 / daily digest / 出价过期提醒) | IDEA — V2 | (1) 决策闭环 |
 | 9 | 文件附件 (合同 PDF / 看房照片 attach 到 candidate) | IDEA — V2 | (1) 决策闭环 |
 | 10 | Billing / 订阅基础设施 (Stripe 接入, premium tier 解锁 Excel 导出 + 邮件通知) | IDEA — V2 | (2) 商业化能力位 |
@@ -318,6 +326,7 @@ graph LR
 | 2026-05-17 | **北极星 memory + wiki 首版 ship** | 用户喊"项目规范化"; 跟 options-ai-trader 格式对齐 (§1-§7); APS 比 options 简单 (无 real money/agent/LLM/market hours) 精简到 ~350 行 |
 | 2026-05-17 | **5 问 phrasing 统一为 "是 = 守住"** | 首版 Q1-3 是正向, Q4-5 是反向 (是 = 偏离), 用户 review 时混淆答 Q4 是; 改为全 5 问统一 "是 = 守住, 否 = 偏离" + 加 Q5 一句话 (Trade Me = 找, APS = 判断 + 跟踪) |
 | 2026-05-17 | **远景 §2 扩 — 加分隔计算器 + 选租房 + 综合工具定位** | 用户补充: "有很多 trademe 没有的功能, 未来还要做分隔计算器等等; 这个网站会变成选房选租房等等综合且功能强大的工具". 加 §2 #8 分隔计算器 (V2 重点, 跟决策闭环紧密绑) + #9 选租房 (V3+ 租客侧 persona) + #10 综合工具定位 (业主侧 + 租客侧 + 投资侧多 persona); §4 加 spec #17/#18; 一句话总结从"V1+V2+V3+ 单一闭环"改为"NZ 房地产综合工具集" |
+| 2026-05-17 | **V1 必做 3 spec 一批 ship** (#5 Candidate UI / #6 Admin 报表 / #7 用户 onboarding) | 用户 "全部 spec" 触发; 3 subagent 并行 (~6 min wallclock vs 串行 ~25 min), 同时写项目 repo + docs-hub wiki (内容一致). 总 ~1195 行 spec. **配套修 stale**: SA1 抓到北极星 §1 progress "8 值" 实际是 10 值 (`new/watching/research/negotiating/offered/offer_failed/offer_cancelled/contracted/settled/dropped`, code `web/routers/candidates.py:80`), 同 commit 修. **3 个 BIG open question 待用户决**: (a) #5 progress 是否允许倒退 (settled→research)? (b) #5 transition_notes size cap? (c) #7 email provider 选 Gmail SMTP (A 推荐) vs Resend free (B) vs Mailgun free (C)? 北极星 §4 #5/#6/#7 状态 IDEA → SPEC-DRAFTED-2026-05-17 |
 
 ---
 

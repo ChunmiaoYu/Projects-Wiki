@@ -128,6 +128,9 @@ nav:
     - 项目介绍:
       - auckland-property-shortlist/specs/README.md
       - ⭐ 北极星 — V1 目标 + 最终远景 + 决策门禁: auckland-property-shortlist/specs/north-star-v1-target.md
+      - 2026-05-17 Candidate 决策状态机 UI (V1 #5): auckland-property-shortlist/specs/2026-05-17-candidate-state-machine-ui-design.md
+      - 2026-05-17 Admin 多用户 aggregate 报表 (V1 #6): auckland-property-shortlist/specs/2026-05-17-admin-aggregate-report-design.md
+      - 2026-05-17 用户 onboarding 自助 (V1 #7): auckland-property-shortlist/specs/2026-05-17-user-onboarding-self-service-design.md
     - 技术文档:
       - 文档索引: auckland-property-shortlist/index.md
       - 项目概述: auckland-property-shortlist/01_overview.md
