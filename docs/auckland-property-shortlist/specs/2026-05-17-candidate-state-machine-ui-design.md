@@ -256,14 +256,13 @@ def _migrate_create_progress_history(engine):
     这些问题 V1 默认值已选, 用户可重定. 影响实施分支.
 
 **Q1**: 允许 progress 倒退? (e.g. `settled` 改回 `research`)
-- **默认**: 允许, 不加状态机合法性约束
-- **理由**: V1 friends-and-family beta 6 人, 信任用户; 加约束反而限制真实场景 (e.g. 误点回退 / 重新评估 / settled 黄了改回 dropped)
-- **替代**: 加 hard guard (settled → 不可改) / 加 soft warning (UI 确认对话框)
+- ✅ **2026-05-17 用户决: A. 允许任意转** — V1 friends-and-family beta 6 人, 信任用户; 加约束反而限制真实场景 (e.g. 误点回退 / 重新评估 / settled 黄了改回 dropped)
+- 商业化以后可加约束 hook (B 只能往后 / C 部分约束), 不破坏 forward compat
+- 实施: 不写状态机合法性校验代码, 任意 progress → 任意 progress 都允许
 
 **Q2**: `transition_notes` 大小上限?
-- **默认**: 不加上限 (Text 字段, SQLite 实际 ~1GB 上限)
-- **风险**: 用户粘贴超大文本污染 timeline. 极低概率.
-- **替代**: 加 ~2000 字符前端 + 后端硬限
+- ✅ **2026-05-17 用户决: 设 2000 char 上限** — 一段较长 note (~600-700 中文字) 不让写小说, 防滥用
+- 实施: 前端 textarea `maxlength="2000"` + 后端 pydantic `Field(max_length=2000)` 双重校验; 超过返 422
 
 **Q3**: 同一秒内连续 2 次点同一个 progress 切换应不应该都记 history?
 - **默认**: 跟现状一致 — 跟当前值不同就记, 不做 debounce (跟 candidate 创建的 60s debounce 不同 namespace)
