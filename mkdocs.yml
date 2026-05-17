@@ -123,6 +123,11 @@ nav:
   - 奥克兰在售房产搜索工具:
     - 项目看板: auckland-property-shortlist/dashboard/index.md
     - 看板历史: auckland-property-shortlist/dashboard-snapshots/index.md
+    - 决策记录:
+      - auckland-property-shortlist/decisions/README.md
+    - 项目介绍:
+      - auckland-property-shortlist/specs/README.md
+      - ⭐ 北极星 — V1 目标 + 最终远景 + 决策门禁: auckland-property-shortlist/specs/north-star-v1-target.md
     - 技术文档:
       - 文档索引: auckland-property-shortlist/index.md
       - 项目概述: auckland-property-shortlist/01_overview.md
